@@ -39,7 +39,7 @@ G_LR = 0.00005  # Generator learning rate
 D_LR = 0.0005  # Discriminator learning rate
 
 initial_epoch = 0
-n_epochs = 10
+n_epochs = 1
 BATCH_SIZE = 32
 
 BUFFER_SIZE = 4096
@@ -58,14 +58,8 @@ if initial_epoch == 0:
     output_dim = 4
 
     gen_model = tf.keras.Sequential([
-        tf.keras.layers.Dense(FILTERS[output_dim], input_shape=(Z_SIZE,)),
-        tf.keras.layers.ReLU(),
-        tf.keras.layers.Dense(FILTERS[output_dim]),
-        tf.keras.layers.Reshape((1, 1, FILTERS[output_dim])),
-        tf.keras.layers.BatchNormalization(),
-        tf.keras.layers.LeakyReLU(),
-        tf.keras.layers.Conv2DTranspose(filters=FILTERS[output_dim], kernel_size=output_dim, strides=1,
-                                        padding='valid', use_bias=False),
+        tf.keras.layers.Dense(output_dim * output_dim * FILTERS[output_dim], input_shape=(Z_SIZE,)),
+        tf.keras.layers.Reshape((output_dim, output_dim, FILTERS[output_dim])),
         tf.keras.layers.BatchNormalization(),
         tf.keras.layers.LeakyReLU()])
 
@@ -95,12 +89,7 @@ if initial_epoch == 0:
         disc_model.add(tf.keras.layers.LayerNormalization())
         disc_model.add(tf.keras.layers.LeakyReLU())
 
-    disc_model.add(tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=output_dim, padding='valid'))
-    disc_model.add(tf.keras.layers.LayerNormalization())
-    disc_model.add(tf.keras.layers.LeakyReLU())
     disc_model.add(tf.keras.layers.Flatten())
-    disc_model.add(tf.keras.layers.Dense(FILTERS[output_dim]))
-    disc_model.add(tf.keras.layers.ReLU())
     disc_model.add(tf.keras.layers.Dense(1))
 
 
