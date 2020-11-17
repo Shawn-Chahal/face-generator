@@ -83,7 +83,8 @@ def dashboard(width, height, n_last_epochs=None):
         )
 
 
-def plot_images(image_batch, name, epoch):
+def plot_images(epoch_sample, name, epoch):
+    image_batch = (epoch_sample.numpy() + 1) / 2
     fig = plt.figure(figsize=(n_cols, n_rows), dpi=300)
     for i in range(n_rows * n_cols):
         ax = fig.add_subplot(n_rows, n_cols, i + 1)
@@ -229,7 +230,7 @@ image_dict = {
 }
 
 dataset = "celeba"
-initial_epoch = 0
+initial_epoch = 1
 
 CHANNELS = 3
 KERNEL_SIZE = 5
@@ -375,13 +376,13 @@ for epoch in range(initial_epoch + 1, final_epoch + 1):
     learning_curve(6, 4)
     dashboard(20, 4)
 
-    epoch_samples = (gen_model(fixed_z, training=False).numpy() + 1) / 2
+    epoch_samples = gen_model(fixed_z, training=False)
 
     names = ["skips"]
     dim = 4
     while dim <= GEN_DIM:
-        names.append(f"dim:03d")
+        names.append(f"{dim:03d}")
         dim *= 2
 
-    for i, name in enumerate(names):
-        plot_images(epoch_samples[i], name, epoch)
+    for epoch_sample, name in zip(epoch_samples, names):
+        plot_images(epoch_sample, name, epoch)
