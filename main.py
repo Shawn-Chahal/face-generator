@@ -121,6 +121,22 @@ def load_network():
 
 
 def create_network():
+    def gen_conv_block(block_input, strides):
+        block_output = tf.keras.layers.Conv2DTranspose(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
+                                                       padding="same", use_bias=False, strides=strides)(block_input)
+
+        block_output = tf.keras.layers.BatchNormalization()(block_output)
+        block_output = tf.keras.layers.LeakyReLU()(block_output)
+
+        return block_output
+
+    def disc_conv_block(block_input):
+        block_output = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE, padding="same"
+                                              )(block_input)
+        block_output = tf.keras.layers.LayerNormalization()(block_output)
+        block_output = tf.keras.layers.LeakyReLU()(block_output)
+        return block_output
+
     min_dim = 4
     output_dim = min_dim + 0
 
@@ -128,48 +144,41 @@ def create_network():
 
     gen_inputs = tf.keras.Input(shape=(Z_SIZE,))
     gen_hidden = tf.keras.layers.Reshape((1, 1, Z_SIZE))(gen_inputs)
+
     gen_hidden = tf.keras.layers.Conv2DTranspose(filters=FILTERS[output_dim], kernel_size=output_dim, use_bias=False)(
         gen_hidden)
-
     gen_hidden = tf.keras.layers.BatchNormalization()(gen_hidden)
     gen_hidden = tf.keras.layers.LeakyReLU()(gen_hidden)
+
+    gen_hidden = gen_conv_block(gen_hidden, 1)
+
     gen_rgb.append(
-        tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE, padding="same", use_bias=False,
+        tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_RGB, padding="same", use_bias=False,
                                         activation="tanh")(gen_hidden))
 
     while output_dim < GEN_DIM:
         output_dim *= 2
-
-        gen_hidden = tf.keras.layers.Conv2DTranspose(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
-                                                     padding="same",
-                                                     use_bias=False, strides=2)(gen_hidden)
-
-        gen_hidden = tf.keras.layers.BatchNormalization()(gen_hidden)
-        gen_hidden = tf.keras.layers.LeakyReLU()(gen_hidden)
-        gen_rgb.append(tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE, padding="same",
+        gen_hidden = gen_conv_block(gen_hidden, 2)
+        gen_hidden = gen_conv_block(gen_hidden, 1)
+        gen_rgb.append(tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_RGB, padding="same",
                                                        use_bias=False, activation="tanh")(gen_hidden))
 
     gen_outputs = gen_rgb[0]
 
-    for i in range(1, len(gen_rgb)):
+    for gen_rgb_skip in gen_rgb[1:]:
         gen_outputs = tf.keras.layers.UpSampling2D(size=2, interpolation='bilinear')(gen_outputs)
-        gen_outputs = tf.keras.layers.Add()([gen_outputs, gen_rgb[i]])
-
-    gen_outputs = tf.math.divide(gen_outputs, len(gen_rgb))
+        gen_outputs = tf.keras.layers.Average()([gen_outputs, gen_rgb_skip])
 
     gen_model = tf.keras.Model(inputs=gen_inputs, outputs=gen_outputs)
 
     disc_inputs = tf.keras.Input(shape=(output_dim, output_dim, CHANNELS))
-
     disc_skip = disc_inputs
-
-    disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE, padding="same"
-                                          )(disc_inputs)
-    disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
-    disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
+    disc_outputs = disc_conv_block(disc_inputs)
+    disc_outputs = disc_conv_block(disc_outputs)
 
     while output_dim > min_dim:
         output_dim = output_dim // 2
+
         disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE, padding="same",
                                               strides=2)(disc_outputs)
 
@@ -180,6 +189,7 @@ def create_network():
         disc_outputs = tf.keras.layers.Average()([disc_outputs, disc_frgb])
         disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
         disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
+        disc_outputs = disc_conv_block(disc_outputs)
 
     disc_outputs = tf.keras.layers.Conv2D(filters=Z_SIZE, kernel_size=output_dim)(disc_outputs)
     disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
@@ -218,21 +228,21 @@ image_dict = {
 }
 
 dataset = "celeba"
-initial_epoch = 11
+initial_epoch = 0
 
 CHANNELS = 3
-KERNEL_SIZE = 5
+KERNEL_SIZE = 3
+KERNEL_RGB = 1
+FILTERS = {4: 512, 8: 512, 16: 256, 32: 128, 64: 64, 128: 32}
+BUFFER_SIZE = 4096
 Z_SIZE = 128
-FILTERS = {4: 512, 8: 256, 16: 128, 32: 64, 64: 32, 128: 16}
-GEN_DIM = 128
+BATCH_SIZE = 32
+GEN_DIM = 64
 
 LAMBDA_GP = 10
 BETA_1 = 0
-G_LR = 0.0001  # Generator learning rate
-D_LR = 0.0004  # Discriminator learning rate
-
-BUFFER_SIZE = 4096
-BATCH_SIZE = 32
+G_LR = 0.0002  # Generator learning rate
+D_LR = 0.0005  # Discriminator learning rate
 
 STATUS_FREQUENCY = 60  # seconds
 images_path = image_dict[dataset]
@@ -273,12 +283,17 @@ with open(os.path.join(dataset, "logs", f"disc_model_summary.txt"), "w") as f_di
 
 disc_model.summary()
 
-start_time = time.time()
-last_status = time.time()
+if len(dict_loss["Time [s]"]) > 0:
+    start_time = time.time() - dict_loss["Time [s]"][-1]
+else:
+    start_time = time.time()
 
 for epoch in range(initial_epoch + 1, final_epoch + 1):
 
     epoch_loss = {"G": [], "D": [], "D-Real": [], "D-Fake": [], "D-GP": []}
+
+    last_status = time.time()
+    last_status_batch = 0
 
     for i, (input_z, input_real) in enumerate(ds):
 
@@ -324,11 +339,10 @@ for epoch in range(initial_epoch + 1, final_epoch + 1):
             disc_model.save(os.path.join(dataset, "objects", f"disc_model-{epoch:03d}.h5"))
             pickle.dump(g_optimizer, open(os.path.join(dataset, "objects", "g_optimizer.pkl"), "wb"))
             pickle.dump(d_optimizer, open(os.path.join(dataset, "objects", "d_optimizer.pkl"), "wb"))
-            session_epochs = i / n_batches + epoch - initial_epoch - 1
-            session_hours = (time.time() - start_time) / 3600
-            epochs_per_hour = session_epochs / session_hours
-            last_status = time.time()
+            epochs_per_hour = ((i - last_status_batch) / n_batches) / ((time.time() - last_status) / 3600)
             print(f"Epoch: {epoch} | Batch: {i:4d}/{n_batches} | Epochs per hour: {epochs_per_hour:.2f}")
+            last_status = time.time()
+            last_status_batch = i
 
     dict_loss["Loss (G)"].append(np.mean(np.array(epoch_loss["G"])))
     dict_loss["Loss (D)"].append(np.mean(np.array(epoch_loss["D"])))
@@ -344,12 +358,7 @@ for epoch in range(initial_epoch + 1, final_epoch + 1):
 
     elapsed_time = time.time() - start_time
     elapsed_time_r = get_time(elapsed_time)
-
-    if initial_epoch is 0:
-        total_time = elapsed_time
-    else:
-        total_time = elapsed_time + dict_loss["Time [s]"][initial_epoch - 1]
-
+    total_time = elapsed_time
     total_time_r = get_time(total_time)
     dict_loss["Time [s]"].append(total_time)
     pd.DataFrame.from_dict(dict_loss).to_csv(os.path.join(dataset, "logs", "loss.csv"), index=False)
