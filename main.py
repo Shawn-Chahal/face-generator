@@ -20,6 +20,7 @@ def learning_curve(width, height):
 
     plt.tight_layout()
     plt.savefig(os.path.join(dataset, "logs", "learning_curve.png"))
+    plt.close(fig)
 
 
 def dashboard(width, height):
@@ -39,6 +40,7 @@ def dashboard(width, height):
 
     plt.tight_layout()
     plt.savefig(os.path.join(dataset, "logs", "learning_curve_dashboard.png"))
+    plt.close(fig)
 
 
 def plot_images(gen_images):
@@ -53,6 +55,7 @@ def plot_images(gen_images):
     plt.tight_layout()
     plt.savefig(os.path.join(dataset, "logs", f"generated_faces_{model_version:04d}.png"))
     plt.savefig(os.path.join(dataset, "logs", f"generated_faces_latest.png"))
+    plt.close(fig)
 
 
 def get_time(t):
@@ -197,8 +200,8 @@ image_dict = {
 }
 
 dataset = "celeba"
-model_version = 0
-log_frequency = 1 * 60  # seconds
+model_version = 17
+log_frequency = 5 * 60  # seconds
 
 CHANNELS = 3
 KERNEL_SIZE = 3
@@ -211,8 +214,8 @@ GEN_DIM = 64
 
 LAMBDA_GP = 10
 BETA_1 = 0
-G_LR = 0.0002  # Generator learning rate
-D_LR = 0.0005  # Discriminator learning rate
+G_LR = 0.0001  # Generator learning rate
+D_LR = 0.0004  # Discriminator learning rate
 
 images_path = image_dict[dataset]
 
