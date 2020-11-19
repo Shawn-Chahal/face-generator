@@ -83,7 +83,7 @@ def dashboard(width, height, n_last_epochs=None):
         )
 
 
-def plot_images(epoch_sample, name, epoch):
+def plot_images(epoch_sample, epoch):
     image_batch = (epoch_sample.numpy() + 1) / 2
     fig = plt.figure(figsize=(n_cols, n_rows), dpi=300)
     for i in range(n_rows * n_cols):
@@ -93,8 +93,7 @@ def plot_images(epoch_sample, name, epoch):
         ax.imshow(image_batch[i])
 
     plt.tight_layout()
-    plt.savefig(os.path.join(dataset, "logs", f"generated_faces_{name}-{epoch:03d}.png"))
-    plt.savefig(os.path.join(dataset, "logs", f"generated_faces_{name}_latest.png"))
+    plt.savefig(os.path.join(dataset, "logs", f"generated_faces_{epoch:03d}.png"))
 
 
 def get_time(t):
@@ -108,23 +107,15 @@ def get_time(t):
 
 
 def load_optimizers():
-    g_optimizer = pickle.load(
-        open(os.path.join(dataset, "objects", "g_optimizer.pkl"), "rb")
-    )
-    d_optimizer = pickle.load(
-        open(os.path.join(dataset, "objects", "d_optimizer.pkl"), "rb")
-    )
+    g_optimizer = pickle.load(open(os.path.join(dataset, "objects", "g_optimizer.pkl"), "rb"))
+    d_optimizer = pickle.load(open(os.path.join(dataset, "objects", "d_optimizer.pkl"), "rb"))
 
     return g_optimizer, d_optimizer
 
 
 def load_network():
-    gen_model = tf.keras.models.load_model(
-        os.path.join(dataset, "objects", f"gen_model-{initial_epoch:03d}.h5")
-    )
-    disc_model = tf.keras.models.load_model(
-        os.path.join(dataset, "objects", f"disc_model-{initial_epoch:03d}.h5")
-    )
+    gen_model = tf.keras.models.load_model(os.path.join(dataset, "objects", f"gen_model-{initial_epoch:03d}.h5"))
+    disc_model = tf.keras.models.load_model(os.path.join(dataset, "objects", f"disc_model-{initial_epoch:03d}.h5"))
 
     return gen_model, disc_model
 
@@ -158,16 +149,13 @@ def create_network():
         gen_rgb.append(tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE, padding="same",
                                                        use_bias=False, activation="tanh")(gen_hidden))
 
-    gen_skips = gen_rgb[0]
+    gen_outputs = gen_rgb[0]
 
     for i in range(1, len(gen_rgb)):
-        gen_skips = tf.keras.layers.UpSampling2D(size=2, interpolation='bilinear')(gen_skips)
-        gen_skips = tf.keras.layers.Add()([gen_skips, gen_rgb[i]])
+        gen_outputs = tf.keras.layers.UpSampling2D(size=2, interpolation='bilinear')(gen_outputs)
+        gen_outputs = tf.keras.layers.Add()([gen_outputs, gen_rgb[i]])
 
-    gen_skips = tf.math.divide(gen_skips, len(gen_rgb))
-
-    gen_outputs = [gen_skips]
-    gen_outputs.extend(gen_rgb)
+    gen_outputs = tf.math.divide(gen_outputs, len(gen_rgb))
 
     gen_model = tf.keras.Model(inputs=gen_inputs, outputs=gen_outputs)
 
@@ -230,7 +218,7 @@ image_dict = {
 }
 
 dataset = "celeba"
-initial_epoch = 1
+initial_epoch = 11
 
 CHANNELS = 3
 KERNEL_SIZE = 5
@@ -295,7 +283,7 @@ for epoch in range(initial_epoch + 1, final_epoch + 1):
     for i, (input_z, input_real) in enumerate(ds):
 
         with tf.GradientTape() as d_tape, tf.GradientTape() as g_tape:
-            g_output = gen_model(input_z, training=True)[0]
+            g_output = gen_model(input_z, training=True)
 
             d_critics_real = disc_model(input_real, training=True)
             d_critics_fake = disc_model(g_output, training=True)
@@ -332,14 +320,15 @@ for epoch in range(initial_epoch + 1, final_epoch + 1):
         epoch_loss["D-GP"].append(d_loss_gp.numpy())
 
         if time.time() - last_status > STATUS_FREQUENCY:
+            gen_model.save(os.path.join(dataset, "objects", f"gen_model-{epoch:03d}.h5"))
+            disc_model.save(os.path.join(dataset, "objects", f"disc_model-{epoch:03d}.h5"))
+            pickle.dump(g_optimizer, open(os.path.join(dataset, "objects", "g_optimizer.pkl"), "wb"))
+            pickle.dump(d_optimizer, open(os.path.join(dataset, "objects", "d_optimizer.pkl"), "wb"))
             session_epochs = i / n_batches + epoch - initial_epoch - 1
             session_hours = (time.time() - start_time) / 3600
             epochs_per_hour = session_epochs / session_hours
             last_status = time.time()
-            print(
-                f"Epoch: {epoch} | Batch: {i:4d}/{n_batches} | Epochs per hour: {epochs_per_hour:.2f} | "
-                f"Minutes per epoch: {60 / max(epochs_per_hour, 0.001):.0f}"
-            )
+            print(f"Epoch: {epoch} | Batch: {i:4d}/{n_batches} | Epochs per hour: {epochs_per_hour:.2f}")
 
     dict_loss["Loss (G)"].append(np.mean(np.array(epoch_loss["G"])))
     dict_loss["Loss (D)"].append(np.mean(np.array(epoch_loss["D"])))
@@ -350,7 +339,6 @@ for epoch in range(initial_epoch + 1, final_epoch + 1):
 
     gen_model.save(os.path.join(dataset, "objects", f"gen_model-{epoch:03d}.h5"))
     disc_model.save(os.path.join(dataset, "objects", f"disc_model-{epoch:03d}.h5"))
-
     pickle.dump(g_optimizer, open(os.path.join(dataset, "objects", "g_optimizer.pkl"), "wb"))
     pickle.dump(d_optimizer, open(os.path.join(dataset, "objects", "d_optimizer.pkl"), "wb"))
 
@@ -375,14 +363,4 @@ for epoch in range(initial_epoch + 1, final_epoch + 1):
 
     learning_curve(6, 4)
     dashboard(20, 4)
-
-    epoch_samples = gen_model(fixed_z, training=False)
-
-    names = ["skips"]
-    dim = 4
-    while dim <= GEN_DIM:
-        names.append(f"{dim:03d}")
-        dim *= 2
-
-    for epoch_sample, name in zip(epoch_samples, names):
-        plot_images(epoch_sample, name, epoch)
+    plot_images(gen_model(fixed_z), epoch)
