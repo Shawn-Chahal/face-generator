@@ -12,79 +12,37 @@ def learning_curve(width, height):
     fig = plt.figure(figsize=(width, height), dpi=600)
 
     ax = fig.add_subplot(1, 1, 1)
-    ax.plot(dict_loss["Epoch"], dict_loss["Loss (G)"], label="G")
-    ax.plot(dict_loss["Epoch"], dict_loss["Loss (D)"], label="D")
-    # ax.plot(dict_loss["Epoch"], dict_loss["Loss (D-Real)"], label="D-Real")
-    # ax.plot(dict_loss["Epoch"], dict_loss["Loss (D-Fake)"], label="D-Fake")
-    # ax.plot(dict_loss["Epoch"], dict_loss["Loss (D-GP)"], label="D-GP")
-    ax.legend(ncol=2)
-    ax.set_xlabel("Epoch")
+    ax.plot(dict_loss["Images trained"], dict_loss["Loss (G)"], label="G")
+    ax.plot(dict_loss["Images trained"], dict_loss["Loss (D)"], label="D")
+    ax.legend()
+    ax.set_xlabel("Images trained")
     ax.set_ylabel("Loss")
 
     plt.tight_layout()
     plt.savefig(os.path.join(dataset, "logs", "learning_curve.png"))
 
 
-def dashboard(width, height, n_last_epochs=None):
+def dashboard(width, height):
     n_rows = 1
     n_cols = 5
 
-    if n_last_epochs is None:
-        start = 0
-    else:
-        start = -min(n_last_epochs, epoch)
-
     fig = plt.figure(figsize=(width, height), dpi=600)
 
-    ax = fig.add_subplot(n_rows, n_cols, 1)
-    ax.plot(dict_loss["Epoch"][start:], dict_loss["Loss (G)"][start:], color="tab:blue")
-    ax.set_xlabel("Epoch")
-    ax.set_ylabel("Loss (G)")
+    labels = ["Loss (G)", "Loss (D)", "Loss (D-Real)", "Loss (D-Fake)", "Loss (D-GP)"]
+    colors = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple"]
 
-    ax = fig.add_subplot(n_rows, n_cols, 2)
-    ax.plot(
-        dict_loss["Epoch"][start:],
-        dict_loss["Loss (D)"][start:],
-        color="tab:orange",
-    )
-    ax.set_xlabel("Epoch")
-    ax.set_ylabel("Loss (D)")
-
-    ax = fig.add_subplot(n_rows, n_cols, 3)
-    ax.plot(
-        dict_loss["Epoch"][start:],
-        dict_loss["Loss (D-Real)"][start:],
-        color="tab:green",
-    )
-    ax.set_xlabel("Epoch")
-    ax.set_ylabel("Loss (D-Real)")
-
-    ax = fig.add_subplot(n_rows, n_cols, 4)
-    ax.plot(
-        dict_loss["Epoch"][start:], dict_loss["Loss (D-Fake)"][start:], color="tab:red"
-    )
-    ax.set_xlabel("Epoch")
-    ax.set_ylabel("Loss (D-Fake)")
-
-    ax = fig.add_subplot(n_rows, n_cols, 5)
-    ax.plot(
-        dict_loss["Epoch"][start:], dict_loss["Loss (D-GP)"][start:], color="tab:purple"
-    )
-    ax.set_xlabel("Epoch")
-    ax.set_ylabel("Loss (D-GP)")
+    for i, (label, color) in enumerate(zip(labels, colors), 1):
+        ax = fig.add_subplot(n_rows, n_cols, i)
+        ax.plot(dict_loss["Images trained"], dict_loss[label], color=color)
+        ax.set_xlabel("Images trained")
+        ax.set_ylabel(label)
 
     plt.tight_layout()
-
-    if n_last_epochs is None:
-        plt.savefig(os.path.join(dataset, "logs", "learning_curve_dashboard.png"))
-    else:
-        plt.savefig(
-            os.path.join(dataset, "logs", "learning_curve_dashboard_recent.png")
-        )
+    plt.savefig(os.path.join(dataset, "logs", "learning_curve_dashboard.png"))
 
 
-def plot_images(epoch_sample, epoch):
-    image_batch = (epoch_sample.numpy() + 1) / 2
+def plot_images(gen_images):
+    image_batch = (gen_images.numpy() + 1) / 2
     fig = plt.figure(figsize=(n_cols, n_rows), dpi=300)
     for i in range(n_rows * n_cols):
         ax = fig.add_subplot(n_rows, n_cols, i + 1)
@@ -93,7 +51,8 @@ def plot_images(epoch_sample, epoch):
         ax.imshow(image_batch[i])
 
     plt.tight_layout()
-    plt.savefig(os.path.join(dataset, "logs", f"generated_faces_{epoch:03d}.png"))
+    plt.savefig(os.path.join(dataset, "logs", f"generated_faces_{model_version:04d}.png"))
+    plt.savefig(os.path.join(dataset, "logs", f"generated_faces_latest.png"))
 
 
 def get_time(t):
@@ -114,8 +73,8 @@ def load_optimizers():
 
 
 def load_network():
-    gen_model = tf.keras.models.load_model(os.path.join(dataset, "objects", f"gen_model-{initial_epoch:03d}.h5"))
-    disc_model = tf.keras.models.load_model(os.path.join(dataset, "objects", f"disc_model-{initial_epoch:03d}.h5"))
+    gen_model = tf.keras.models.load_model(os.path.join(dataset, "objects", f"gen_model-{model_version:04d}.h5"))
+    disc_model = tf.keras.models.load_model(os.path.join(dataset, "objects", f"disc_model-{model_version:04d}.h5"))
 
     return gen_model, disc_model
 
@@ -199,6 +158,16 @@ def create_network():
 
     disc_model = tf.keras.Model(inputs=disc_inputs, outputs=disc_outputs)
 
+    with open(os.path.join(dataset, "logs", f"gen_model_summary.txt"), "w") as f_gen_model_summary:
+        gen_model.summary(print_fn=(lambda x: f_gen_model_summary.write(f"{x}\n")))
+
+    gen_model.summary()
+
+    with open(os.path.join(dataset, "logs", f"disc_model_summary.txt"), "w") as f_disc_model_summary:
+        disc_model.summary(print_fn=(lambda x: f_disc_model_summary.write(f"{x}\n")))
+
+    disc_model.summary()
+
     return gen_model, disc_model
 
 
@@ -228,15 +197,16 @@ image_dict = {
 }
 
 dataset = "celeba"
-initial_epoch = 0
+model_version = 0
+log_frequency = 1 * 60  # seconds
 
 CHANNELS = 3
 KERNEL_SIZE = 3
 KERNEL_RGB = 1
-FILTERS = {4: 512, 8: 512, 16: 256, 32: 128, 64: 64, 128: 32}
+FILTERS = {4: 512, 8: 512, 16: 256, 32: 128, 64: 64}
 BUFFER_SIZE = 4096
 Z_SIZE = 128
-BATCH_SIZE = 32
+BATCH_SIZE = 16
 GEN_DIM = 64
 
 LAMBDA_GP = 10
@@ -244,9 +214,7 @@ BETA_1 = 0
 G_LR = 0.0002  # Generator learning rate
 D_LR = 0.0005  # Discriminator learning rate
 
-STATUS_FREQUENCY = 60  # seconds
 images_path = image_dict[dataset]
-final_epoch = 1000
 
 n_rows = 4
 n_cols = 8
@@ -256,120 +224,103 @@ list_ds = tf.data.Dataset.list_files(images_path)
 n_images = len(list(list_ds))
 list_ds.shuffle(buffer_size=n_images, reshuffle_each_iteration=False)
 ds = list_ds.map(process_path)
-ds = ds.shuffle(buffer_size=BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True)
+ds = ds.shuffle(buffer_size=BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True).repeat()
 
-n_batches = int(n_images / BATCH_SIZE)
-
-if initial_epoch == 0:
+if model_version == 0:
     gen_model, disc_model = create_network()
-    dict_loss = {"Epoch": [], "Time [s]": [], "Loss (G)": [], "Loss (D)": [], "Loss (D-Real)": [], "Loss (D-Fake)": [],
-                 "Loss (D-GP)": []}
+    dict_loss = {"Model version": [], "Images trained": [], "Time [s]": [], "Loss (G)": [], "Loss (D)": [],
+                 "Loss (D-Real)": [], "Loss (D-Fake)": [], "Loss (D-GP)": []}
 
     g_optimizer = tf.keras.optimizers.Adam(learning_rate=G_LR, beta_1=BETA_1)
     d_optimizer = tf.keras.optimizers.Adam(learning_rate=D_LR, beta_1=BETA_1)
+
+    initial_batch_count = 0
+    start_time = time.time()
 
 else:
     gen_model, disc_model = load_network()
     g_optimizer, d_optimizer = load_optimizers()
     dict_loss = pd.read_csv(os.path.join(dataset, "logs", "loss.csv")).to_dict("list")
-
-with open(os.path.join(dataset, "logs", f"gen_model_summary.txt"), "w") as f_gen_model_summary:
-    gen_model.summary(print_fn=(lambda x: f_gen_model_summary.write(f"{x}\n")))
-
-gen_model.summary()
-
-with open(os.path.join(dataset, "logs", f"disc_model_summary.txt"), "w") as f_disc_model_summary:
-    disc_model.summary(print_fn=(lambda x: f_disc_model_summary.write(f"{x}\n")))
-
-disc_model.summary()
-
-if len(dict_loss["Time [s]"]) > 0:
+    initial_batch_count = int(dict_loss["Images trained"][-1] / BATCH_SIZE)
     start_time = time.time() - dict_loss["Time [s]"][-1]
-else:
-    start_time = time.time()
 
-for epoch in range(initial_epoch + 1, final_epoch + 1):
+last_status = time.time()
+last_batch_count = initial_batch_count
+last_status_loss = {"G": [], "D": [], "D-Real": [], "D-Fake": [], "D-GP": []}
 
-    epoch_loss = {"G": [], "D": [], "D-Real": [], "D-Fake": [], "D-GP": []}
+for batch_count, (input_z, input_real) in enumerate(ds, initial_batch_count):
 
-    last_status = time.time()
-    last_status_batch = 0
+    with tf.GradientTape() as d_tape, tf.GradientTape() as g_tape:
+        g_output = gen_model(input_z, training=True)
 
-    for i, (input_z, input_real) in enumerate(ds):
+        d_critics_real = disc_model(input_real, training=True)
+        d_critics_fake = disc_model(g_output, training=True)
 
-        with tf.GradientTape() as d_tape, tf.GradientTape() as g_tape:
-            g_output = gen_model(input_z, training=True)
+        g_loss = -tf.math.reduce_mean(d_critics_fake)
 
-            d_critics_real = disc_model(input_real, training=True)
-            d_critics_fake = disc_model(g_output, training=True)
+        d_loss_real = -tf.math.reduce_mean(d_critics_real)
+        d_loss_fake = tf.math.reduce_mean(d_critics_fake)
 
-            g_loss = -tf.math.reduce_mean(d_critics_fake)
+        with tf.GradientTape() as gp_tape:
+            alpha = tf.random.uniform(shape=[d_critics_real.shape[0], 1, 1, 1], minval=0.0, maxval=1.0)
+            interpolated = alpha * input_real + (1 - alpha) * g_output
+            gp_tape.watch(interpolated)
+            d_critics_intp = disc_model(interpolated)
 
-            d_loss_real = -tf.math.reduce_mean(d_critics_real)
-            d_loss_fake = tf.math.reduce_mean(d_critics_fake)
+        grads_intp = gp_tape.gradient(d_critics_intp, [interpolated])[0]
 
-            with tf.GradientTape() as gp_tape:
-                alpha = tf.random.uniform(shape=[d_critics_real.shape[0], 1, 1, 1], minval=0.0, maxval=1.0)
-                interpolated = alpha * input_real + (1 - alpha) * g_output
-                gp_tape.watch(interpolated)
-                d_critics_intp = disc_model(interpolated)
+        grads_intp_l2 = tf.sqrt(tf.reduce_sum(tf.square(grads_intp), axis=[1, 2, 3]))
+        grad_penalty = tf.reduce_mean(tf.square(grads_intp_l2 - 1.0))
 
-            grads_intp = gp_tape.gradient(d_critics_intp, [interpolated])[0]
+        d_loss_gp = LAMBDA_GP * grad_penalty
+        d_loss = d_loss_real + d_loss_fake + d_loss_gp
 
-            grads_intp_l2 = tf.sqrt(tf.reduce_sum(tf.square(grads_intp), axis=[1, 2, 3]))
-            grad_penalty = tf.reduce_mean(tf.square(grads_intp_l2 - 1.0))
+    d_grads = d_tape.gradient(d_loss, disc_model.trainable_variables)
+    d_optimizer.apply_gradients(zip(d_grads, disc_model.trainable_variables))
 
-            d_loss_gp = LAMBDA_GP * grad_penalty
-            d_loss = d_loss_real + d_loss_fake + d_loss_gp
+    g_grads = g_tape.gradient(g_loss, gen_model.trainable_variables)
+    g_optimizer.apply_gradients(zip(g_grads, gen_model.trainable_variables))
 
-        d_grads = d_tape.gradient(d_loss, disc_model.trainable_variables)
-        d_optimizer.apply_gradients(zip(d_grads, disc_model.trainable_variables))
+    last_status_loss["G"].append(g_loss.numpy())
+    last_status_loss["D"].append(d_loss.numpy())
+    last_status_loss["D-Real"].append(d_loss_real.numpy())
+    last_status_loss["D-Fake"].append(d_loss_fake.numpy())
+    last_status_loss["D-GP"].append(d_loss_gp.numpy())
 
-        g_grads = g_tape.gradient(g_loss, gen_model.trainable_variables)
-        g_optimizer.apply_gradients(zip(g_grads, gen_model.trainable_variables))
+    if time.time() - last_status > log_frequency:
+        model_version += 1
+        gen_model.save(os.path.join(dataset, "objects", f"gen_model-{model_version:04d}.h5"))
+        disc_model.save(os.path.join(dataset, "objects", f"disc_model-{model_version:04d}.h5"))
+        pickle.dump(g_optimizer, open(os.path.join(dataset, "objects", "g_optimizer.pkl"), "wb"))
+        pickle.dump(d_optimizer, open(os.path.join(dataset, "objects", "d_optimizer.pkl"), "wb"))
 
-        epoch_loss["G"].append(g_loss.numpy())
-        epoch_loss["D"].append(d_loss.numpy())
-        epoch_loss["D-Real"].append(d_loss_real.numpy())
-        epoch_loss["D-Fake"].append(d_loss_fake.numpy())
-        epoch_loss["D-GP"].append(d_loss_gp.numpy())
+        total_time = time.time() - start_time
+        total_time_r = get_time(total_time)
+        images_per_hour = BATCH_SIZE * (batch_count - last_batch_count) / (time.time() - last_status) * 3600
 
-        if time.time() - last_status > STATUS_FREQUENCY:
-            gen_model.save(os.path.join(dataset, "objects", f"gen_model-{epoch:03d}.h5"))
-            disc_model.save(os.path.join(dataset, "objects", f"disc_model-{epoch:03d}.h5"))
-            pickle.dump(g_optimizer, open(os.path.join(dataset, "objects", "g_optimizer.pkl"), "wb"))
-            pickle.dump(d_optimizer, open(os.path.join(dataset, "objects", "d_optimizer.pkl"), "wb"))
-            epochs_per_hour = ((i - last_status_batch) / n_batches) / ((time.time() - last_status) / 3600)
-            print(f"Epoch: {epoch} | Batch: {i:4d}/{n_batches} | Epochs per hour: {epochs_per_hour:.2f}")
-            last_status = time.time()
-            last_status_batch = i
+        dict_loss["Time [s]"].append(total_time)
+        dict_loss["Loss (G)"].append(np.mean(last_status_loss["G"]))
+        dict_loss["Loss (D)"].append(np.mean(last_status_loss["D"]))
+        dict_loss["Loss (D-Real)"].append(np.mean(last_status_loss["D-Real"]))
+        dict_loss["Loss (D-Fake)"].append(np.mean(last_status_loss["D-Fake"]))
+        dict_loss["Loss (D-GP)"].append(np.mean(last_status_loss["D-GP"]))
+        dict_loss["Images trained"].append(BATCH_SIZE * batch_count)
+        dict_loss["Model version"].append(model_version)
 
-    dict_loss["Loss (G)"].append(np.mean(np.array(epoch_loss["G"])))
-    dict_loss["Loss (D)"].append(np.mean(np.array(epoch_loss["D"])))
-    dict_loss["Loss (D-Real)"].append(np.mean(np.array(epoch_loss["D-Real"])))
-    dict_loss["Loss (D-Fake)"].append(np.mean(np.array(epoch_loss["D-Fake"])))
-    dict_loss["Loss (D-GP)"].append(np.mean(np.array(epoch_loss["D-GP"])))
-    dict_loss["Epoch"].append(epoch)
+        pd.DataFrame.from_dict(dict_loss).to_csv(os.path.join(dataset, "logs", "loss.csv"), index=False)
 
-    gen_model.save(os.path.join(dataset, "objects", f"gen_model-{epoch:03d}.h5"))
-    disc_model.save(os.path.join(dataset, "objects", f"disc_model-{epoch:03d}.h5"))
-    pickle.dump(g_optimizer, open(os.path.join(dataset, "objects", "g_optimizer.pkl"), "wb"))
-    pickle.dump(d_optimizer, open(os.path.join(dataset, "objects", "d_optimizer.pkl"), "wb"))
+        print(
+            f"Version: {dict_loss['Model version'][-1]} | Images trained: {dict_loss['Images trained'][-1]} | "
+            f"Time: {total_time_r[0]}:{total_time_r[1]:02d}:{total_time_r[2]:02d} | "
+            f"G loss: {dict_loss['Loss (G)'][-1]:3.2f} | D loss: {dict_loss['Loss (D)'][-1]:3.2f} "
+            f"(D-Real: {dict_loss['Loss (D-Real)'][-1]:3.2f}, D-Fake: {dict_loss['Loss (D-Fake)'][-1]:3.2f}, "
+            f"D-GP: {dict_loss['Loss (D-GP)'][-1]:3.2f}) | Images per hour: {images_per_hour:.0f}"
+        )
 
-    elapsed_time = time.time() - start_time
-    elapsed_time_r = get_time(elapsed_time)
-    total_time = elapsed_time
-    total_time_r = get_time(total_time)
-    dict_loss["Time [s]"].append(total_time)
-    pd.DataFrame.from_dict(dict_loss).to_csv(os.path.join(dataset, "logs", "loss.csv"), index=False)
+        learning_curve(6, 4)
+        dashboard(20, 4)
+        plot_images(gen_model(fixed_z))
 
-    print(
-        f"Epoch: {epoch} | Time: {total_time_r[0]}:{total_time_r[1]:02d}:{total_time_r[2]:02d} | "
-        f"G loss: {dict_loss['Loss (G)'][-1]:3.2f} | D loss: {dict_loss['Loss (D)'][-1]:3.2f} "
-        f"(D-Real: {dict_loss['Loss (D-Real)'][-1]:3.2f}, D-Fake: {dict_loss['Loss (D-Fake)'][-1]:3.2f}, "
-        f"D-GP: {dict_loss['Loss (D-GP)'][-1]:3.2f})"
-    )
-
-    learning_curve(6, 4)
-    dashboard(20, 4)
-    plot_images(gen_model(fixed_z), epoch)
+        last_status = time.time()
+        last_batch_count = batch_count
+        last_status_loss = {"G": [], "D": [], "D-Real": [], "D-Fake": [], "D-GP": []}
