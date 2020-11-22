@@ -188,17 +188,17 @@ image_dict = {
 }
 
 dataset = "celeba"
-model_version = 0
+model_version = 144
 log_frequency = 12 * 60  # seconds
 
 GEN_DIM = 64
 BATCH_SIZE = 32
 
+Z_SIZE = 128
+FILTERS = {4: 512, 8: 512, 16: 256, 32: 128, 64: 64, 128: 32}
 CHANNELS = 3
 KERNEL_SIZE = 5
-FILTERS = {4: 512, 8: 512, 16: 256, 32: 128, 64: 64, 128: 32}
 BUFFER_SIZE = 4096
-Z_SIZE = 128
 
 LAMBDA_GP = 10
 BETA_1 = 0
