@@ -12,8 +12,8 @@ def learning_curve(width, height):
     fig = plt.figure(figsize=(width, height), dpi=600)
 
     ax = fig.add_subplot(1, 1, 1)
-    ax.plot(dict_loss["Images trained"], dict_loss["Loss (G)"], label="G")
-    ax.plot(dict_loss["Images trained"], dict_loss["Loss (D)"], label="D")
+    ax.plot(dict_loss["Images trained"], dict_loss["Loss (G)"], label="Generator")
+    ax.plot(dict_loss["Images trained"], dict_loss["Loss (D)"], label="Discriminator")
     ax.legend()
     ax.set_xlabel("Images trained")
     ax.set_ylabel("Loss")
@@ -188,7 +188,7 @@ image_dict = {
 }
 
 dataset = "celeba"
-model_version = 144
+model_version = 250
 log_frequency = 12 * 60  # seconds
 
 GEN_DIM = 64
