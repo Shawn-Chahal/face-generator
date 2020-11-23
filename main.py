@@ -53,8 +53,12 @@ def plot_images(gen_images):
         ax.imshow(image_batch[i])
 
     plt.tight_layout()
-    plt.savefig(os.path.join(dataset, "logs", f"generated_faces_{model_version:04d}.png"))
+    plt.savefig(os.path.join(dataset, "logs", "generated_faces", f"generated_faces_{model_version:04d}.png"))
     plt.savefig(os.path.join(dataset, "logs", f"generated_faces_latest.png"))
+
+    if model_version % git_log_frequency == 0:
+        plt.savefig(os.path.join(dataset, "logs", f"generated_faces_{model_version:04d}.png"))
+
     plt.close(fig)
 
 
@@ -190,6 +194,7 @@ image_dict = {
 dataset = "celeba"
 model_version = 250
 log_frequency = 12 * 60  # seconds
+git_log_frequency = 20  # versions
 
 GEN_DIM = 64
 BATCH_SIZE = 32
