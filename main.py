@@ -192,7 +192,7 @@ image_dict = {
 }
 
 dataset = "celeba"
-model_version = 250
+model_version = 359
 log_frequency = 12 * 60  # seconds
 git_log_frequency = 20  # versions
 
@@ -213,7 +213,7 @@ D_LR = 0.0004  # Discriminator learning rate
 images_path = image_dict[dataset]
 
 n_rows = 4
-n_cols = 8
+n_cols = BATCH_SIZE // n_rows
 fixed_z = tf.random.normal(shape=(n_rows * n_cols, Z_SIZE))
 
 list_ds = tf.data.Dataset.list_files(images_path)
