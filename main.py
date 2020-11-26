@@ -168,7 +168,7 @@ def create_network():
 
 def process_path(file_path):
     img = tf.io.read_file(file_path)
-    img = tf.io.decode_image(img, channels=CHANNELS)
+    img = tf.io.decode_image(img, channels=CHANNELS, expand_animations=False)
     img = tf.image.convert_image_dtype(img, tf.float32)
 
     if dataset is "celeba":
@@ -191,13 +191,13 @@ image_dict = {
     "flickr_faces": str(os.path.join("photos", "thumbnails128x128", "*", "*.png")),
 }
 
-dataset = "celeba"
-model_version = 359
+dataset = "flickr_faces"
+model_version = 111
 log_frequency = 12 * 60  # seconds
 git_log_frequency = 20  # versions
 
-GEN_DIM = 64
-BATCH_SIZE = 32
+GEN_DIM = 128
+BATCH_SIZE = 16
 
 Z_SIZE = 128
 FILTERS = {4: 512, 8: 512, 16: 256, 32: 128, 64: 64, 128: 32}
