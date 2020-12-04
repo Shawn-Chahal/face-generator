@@ -174,13 +174,13 @@ def process_path(file_path):
     if dataset is "celeba":
         img = tf.image.resize_with_crop_or_pad(img, 178, 178)
 
-    noise = 0.1
-
     img = tf.image.resize(img, size=(GEN_DIM, GEN_DIM))
     img = tf.image.random_flip_left_right(img)
+    '''
+    noise = 0.1
     img = tf.image.random_brightness(img, max_delta=noise)
     img = tf.image.random_contrast(img, lower=(1 / (1 + noise)), upper=(1 + noise))
-
+    '''
     img = img * 2 - 1.0
 
     z_vector = tf.random.normal(shape=(Z_SIZE,))
@@ -188,15 +188,15 @@ def process_path(file_path):
     return z_vector, img
 
 
-# tf.random.set_seed(1) Disabled
+tf.random.set_seed(1)
 
 image_dict = {
     "celeba": str(os.path.join("photos", "img_align_celeba", "*.jpg")),
     "flickr_faces": str(os.path.join("photos", "thumbnails128x128", "*", "*.png")),
 }
 
-dataset = "celeba"
-model_version = 116
+dataset = "flickr_faces"
+model_version = 0
 log_frequency = 12 * 60  # seconds
 git_log_frequency = 20  # versions
 
@@ -204,7 +204,7 @@ GEN_DIM = 128
 BATCH_SIZE = 16
 
 Z_SIZE = 128
-FILTERS = {4: 512, 8: 256, 16: 256, 32: 128, 64: 64, 128: 32}
+FILTERS = {4: 512, 8: 512, 16: 256, 32: 128, 64: 64, 128: 32}
 CHANNELS = 3
 KERNEL_SIZE = 5
 BUFFER_SIZE = 4096
