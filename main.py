@@ -86,7 +86,7 @@ def load_network():
     return gen_model, disc_model
 
 
-def create_network():
+def create_network(skips=True):
     min_dim = 4
     output_dim = min_dim + 0
 
@@ -114,13 +114,16 @@ def create_network():
         gen_rgb.append(tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE, padding="same",
                                                        use_bias=False)(gen_hidden))
 
-    gen_outputs = gen_rgb[0]
+    if skips:
+        gen_outputs = gen_rgb[0]
 
-    for gen_rgb_skip in gen_rgb[1:]:
-        gen_outputs = tf.keras.layers.UpSampling2D(size=2, interpolation='bilinear')(gen_outputs)
-        gen_outputs = tf.keras.layers.Add()([gen_outputs, gen_rgb_skip])
+        for gen_rgb_skip in gen_rgb[1:]:
+            gen_outputs = tf.keras.layers.UpSampling2D(size=2, interpolation='bilinear')(gen_outputs)
+            gen_outputs = tf.keras.layers.Add()([gen_outputs, gen_rgb_skip])
 
-    gen_outputs = tf.math.tanh(gen_outputs)
+        gen_outputs = tf.keras.layers.Activation("tanh")(gen_outputs)
+    else:
+        gen_outputs = tf.keras.layers.Activation("tanh")(gen_rgb[-1])
 
     gen_model = tf.keras.Model(inputs=gen_inputs, outputs=gen_outputs)
 
@@ -195,8 +198,8 @@ image_dict = {
     "flickr_faces": str(os.path.join("photos", "thumbnails128x128", "*", "*.png")),
 }
 
-dataset = "flickr_faces"
-model_version = 0
+dataset = "celeba"
+model_version = 46
 log_frequency = 12 * 60  # seconds
 git_log_frequency = 20  # versions
 
@@ -227,7 +230,7 @@ ds = list_ds.map(process_path)
 ds = ds.shuffle(buffer_size=BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True).repeat()
 
 if model_version == 0:
-    gen_model, disc_model = create_network()
+    gen_model, disc_model = create_network(skips=False)
     dict_loss = {"Model version": [], "Images trained": [], "Time [s]": [], "Loss (G)": [], "Loss (D)": [],
                  "Loss (D-Real)": [], "Loss (D-Fake)": [], "Loss (D-GP)": []}
 
