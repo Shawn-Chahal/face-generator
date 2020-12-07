@@ -118,7 +118,9 @@ def create_network(skips=True):
         gen_outputs = gen_rgb[0]
 
         for gen_rgb_skip in gen_rgb[1:]:
-            gen_outputs = tf.keras.layers.UpSampling2D(size=2, interpolation='bilinear')(gen_outputs)
+            # gen_outputs = tf.keras.layers.UpSampling2D(size=2, interpolation='bilinear')(gen_outputs)
+            gen_outputs = tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE_SKIPS,
+                                                          padding="same", use_bias=False, strides=2)(gen_outputs)
             gen_outputs = tf.keras.layers.Add()([gen_outputs, gen_rgb_skip])
 
         gen_outputs = tf.keras.layers.Activation("tanh")(gen_outputs)
@@ -199,7 +201,7 @@ image_dict = {
 }
 
 dataset = "celeba"
-model_version = 46
+model_version = 27
 log_frequency = 12 * 60  # seconds
 git_log_frequency = 20  # versions
 
@@ -210,6 +212,7 @@ Z_SIZE = 128
 FILTERS = {4: 512, 8: 512, 16: 256, 32: 128, 64: 64, 128: 32}
 CHANNELS = 3
 KERNEL_SIZE = 5
+KERNEL_SIZE_SKIPS = 3
 BUFFER_SIZE = 4096
 
 LAMBDA_GP = 10
@@ -230,7 +233,7 @@ ds = list_ds.map(process_path)
 ds = ds.shuffle(buffer_size=BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True).repeat()
 
 if model_version == 0:
-    gen_model, disc_model = create_network(skips=False)
+    gen_model, disc_model = create_network()
     dict_loss = {"Model version": [], "Images trained": [], "Time [s]": [], "Loss (G)": [], "Loss (D)": [],
                  "Loss (D-Real)": [], "Loss (D-Fake)": [], "Loss (D-GP)": []}
 
