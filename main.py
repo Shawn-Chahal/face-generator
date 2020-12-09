@@ -215,7 +215,7 @@ BUFFER_SIZE = 4096
 LAMBDA_GP = 10
 BETA_1 = 0
 G_LR = 0.0001  # Generator learning rate
-D_LR = 0.0004  # Discriminator learning rate
+D_LR = 0.0002  # Discriminator learning rate
 
 images_path = image_dict[dataset]
 
