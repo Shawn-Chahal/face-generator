@@ -118,9 +118,7 @@ def create_network(skips=True):
         gen_outputs = gen_rgb[0]
 
         for gen_rgb_skip in gen_rgb[1:]:
-            # gen_outputs = tf.keras.layers.UpSampling2D(size=2, interpolation='bilinear')(gen_outputs)
-            gen_outputs = tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE_SKIPS,
-                                                          padding="same", use_bias=False, strides=2)(gen_outputs)
+            gen_outputs = tf.keras.layers.UpSampling2D(size=2, interpolation='bilinear')(gen_outputs)
             gen_outputs = tf.keras.layers.Add()([gen_outputs, gen_rgb_skip])
 
         gen_outputs = tf.keras.layers.Activation("tanh")(gen_outputs)
@@ -201,7 +199,7 @@ image_dict = {
 }
 
 dataset = "celeba"
-model_version = 27
+model_version = 0
 log_frequency = 12 * 60  # seconds
 git_log_frequency = 20  # versions
 
@@ -212,7 +210,6 @@ Z_SIZE = 128
 FILTERS = {4: 512, 8: 512, 16: 256, 32: 128, 64: 64, 128: 32}
 CHANNELS = 3
 KERNEL_SIZE = 5
-KERNEL_SIZE_SKIPS = 3
 BUFFER_SIZE = 4096
 
 LAMBDA_GP = 10
