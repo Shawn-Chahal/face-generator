@@ -191,7 +191,7 @@ def process_path(file_path):
     return z_vector, img
 
 
-tf.random.set_seed(1)
+# tf.random.set_seed(1) Disabled once hyper-parameters are set.
 
 image_dict = {
     "celeba": str(os.path.join("photos", "img_align_celeba", "*.jpg")),
@@ -199,7 +199,7 @@ image_dict = {
 }
 
 dataset = "celeba"
-model_version = 0
+model_version = 70
 log_frequency = 12 * 60  # seconds
 git_log_frequency = 20  # versions
 
