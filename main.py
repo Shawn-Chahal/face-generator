@@ -199,7 +199,7 @@ image_dict = {
 }
 
 dataset = "celeba"
-model_version = 70
+model_version = 111
 log_frequency = 12 * 60  # seconds
 git_log_frequency = 20  # versions
 
