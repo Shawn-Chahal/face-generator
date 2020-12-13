@@ -199,7 +199,7 @@ image_dict = {
 }
 
 dataset = "celeba"
-model_version = 111
+model_version = 178
 log_frequency = 12 * 60  # seconds
 git_log_frequency = 20  # versions
 
@@ -317,11 +317,11 @@ for batch_count, (input_z, input_real) in enumerate(ds, initial_batch_count):
         plot_images(gen_model(fixed_z))
 
         print(
-            f"Version: {dict_loss['Model version'][-1]} | Images trained: {dict_loss['Images trained'][-1]} | "
+            f"Version: {dict_loss['Model version'][-1]:4d} | Images trained: {dict_loss['Images trained'][-1]:8d} | "
             f"Time: {total_time_r[0]}:{total_time_r[1]:02d}:{total_time_r[2]:02d} | "
-            f"G loss: {dict_loss['Loss (G)'][-1]:3.2f} | D loss: {dict_loss['Loss (D)'][-1]:3.2f} "
-            f"(D-Real: {dict_loss['Loss (D-Real)'][-1]:3.2f}, D-Fake: {dict_loss['Loss (D-Fake)'][-1]:3.2f}, "
-            f"D-GP: {dict_loss['Loss (D-GP)'][-1]:3.2f}) | Images per hour: {images_per_hour:.0f}"
+            f"G loss: {dict_loss['Loss (G)'][-1]:6.2f} | D loss: {dict_loss['Loss (D)'][-1]:6.2f} "
+            f"(D-Real: {dict_loss['Loss (D-Real)'][-1]:6.2f}, D-Fake: {dict_loss['Loss (D-Fake)'][-1]:6.2f}, "
+            f"D-GP: {dict_loss['Loss (D-GP)'][-1]:6.2f}) | Images per hour: {images_per_hour:6.0f}"
         )
 
         last_status = time.time()
