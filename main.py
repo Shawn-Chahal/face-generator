@@ -214,8 +214,8 @@ BUFFER_SIZE = 4096
 
 LAMBDA_GP = 10
 BETA_1 = 0
-G_LR = 0.0001  # Generator learning rate
-D_LR = 0.0004  # Discriminator learning rate
+G_LR = 0.00008  # Generator learning rate
+D_LR = 0.0002  # Discriminator learning rate
 
 images_path = image_dict[dataset]
 
@@ -229,22 +229,26 @@ list_ds.shuffle(buffer_size=n_images, reshuffle_each_iteration=False)
 ds = list_ds.map(process_path)
 ds = ds.shuffle(buffer_size=BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True).repeat()
 
-g_optimizer = tf.keras.optimizers.Adam(learning_rate=G_LR, beta_1=BETA_1)
-d_optimizer = tf.keras.optimizers.Adam(learning_rate=D_LR, beta_1=BETA_1)
+
 
 if model_version == 0:
     gen_model, disc_model = create_network()
     dict_loss = {"Model version": [], "Images trained": [], "Time [s]": [], "Loss (G)": [], "Loss (D)": [],
                  "Loss (D-Real)": [], "Loss (D-Fake)": [], "Loss (D-GP)": []}
 
+    g_optimizer = tf.keras.optimizers.Adam(learning_rate=G_LR, beta_1=BETA_1)
+    d_optimizer = tf.keras.optimizers.Adam(learning_rate=D_LR, beta_1=BETA_1)
+
     initial_batch_count = 0
     start_time = time.time()
 
 else:
     gen_model, disc_model = load_network()
-    g_optimizer_old, d_optimizer_old = load_optimizers()
-    g_optimizer.set_weights(g_optimizer_old.get_weights())
-    d_optimizer.set_weights(d_optimizer_old.get_weights())
+    #g_optimizer, d_optimizer = load_optimizers()
+
+    g_optimizer = tf.keras.optimizers.Adam(learning_rate=G_LR, beta_1=BETA_1)
+    d_optimizer = tf.keras.optimizers.Adam(learning_rate=D_LR, beta_1=BETA_1)
+
     dict_loss = pd.read_csv(os.path.join(dataset, "logs", "loss.csv")).to_dict("list")
     initial_batch_count = int(dict_loss["Images trained"][-1] / BATCH_SIZE)
     start_time = time.time() - dict_loss["Time [s]"][-1]
