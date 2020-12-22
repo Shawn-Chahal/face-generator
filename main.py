@@ -179,11 +179,7 @@ def process_path(file_path):
 
     img = tf.image.resize(img, size=(GEN_DIM, GEN_DIM))
     img = tf.image.random_flip_left_right(img)
-    '''
-    noise = 0.1
-    img = tf.image.random_brightness(img, max_delta=noise)
-    img = tf.image.random_contrast(img, lower=(1 / (1 + noise)), upper=(1 + noise))
-    '''
+
     img = img * 2 - 1.0
 
     z_vector = tf.random.normal(shape=(Z_SIZE,))
@@ -198,8 +194,8 @@ image_dict = {
     "flickr_faces": str(os.path.join("photos", "thumbnails128x128", "*", "*.png")),
 }
 
-dataset = "celeba"
-model_version = 458
+dataset = "flickr_faces"
+model_version = 0
 log_frequency = 12 * 60  # seconds
 git_log_frequency = 20  # versions
 
@@ -214,8 +210,8 @@ BUFFER_SIZE = 4096
 
 LAMBDA_GP = 10
 BETA_1 = 0
-G_LR = 0.00008  # Generator learning rate
-D_LR = 0.0002  # Discriminator learning rate
+G_LR = 0.0001  # Generator learning rate
+D_LR = 0.0004  # Discriminator learning rate
 
 images_path = image_dict[dataset]
 
@@ -228,8 +224,6 @@ n_images = len(list(list_ds))
 list_ds.shuffle(buffer_size=n_images, reshuffle_each_iteration=False)
 ds = list_ds.map(process_path)
 ds = ds.shuffle(buffer_size=BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True).repeat()
-
-
 
 if model_version == 0:
     gen_model, disc_model = create_network()
@@ -244,10 +238,7 @@ if model_version == 0:
 
 else:
     gen_model, disc_model = load_network()
-    #g_optimizer, d_optimizer = load_optimizers()
-
-    g_optimizer = tf.keras.optimizers.Adam(learning_rate=G_LR, beta_1=BETA_1)
-    d_optimizer = tf.keras.optimizers.Adam(learning_rate=D_LR, beta_1=BETA_1)
+    g_optimizer, d_optimizer = load_optimizers()
 
     dict_loss = pd.read_csv(os.path.join(dataset, "logs", "loss.csv")).to_dict("list")
     initial_batch_count = int(dict_loss["Images trained"][-1] / BATCH_SIZE)
