@@ -195,7 +195,7 @@ image_dict = {
 }
 
 dataset = "flickr_faces"
-model_version = 0
+model_version = 545
 log_frequency = 12 * 60  # seconds
 git_log_frequency = 20  # versions
 
