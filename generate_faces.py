@@ -2,21 +2,23 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import os
 
-tf.random.set_seed(1)
+tf.random.set_seed(4)
 
-z_size = 512
-dim = 64
-epoch = 440
+dataset = "flickr_faces"
+z_size = 128
+dim = 128
 batch_size = 64
+fixed_z = tf.random.normal(shape=(batch_size, z_size))
+
+epoch = 1239
+add_index = [10, 35, 36, 46, 54, 55]
+
+gen_model = tf.keras.models.load_model(os.path.join(dataset, "objects", f'gen_model-{epoch:04d}.h5'))
+
+images = (gen_model(fixed_z) + 1) / 2
 
 n_rows = 8
 n_cols = 8
-
-fixed_z = tf.random.normal(shape=(batch_size, z_size))
-
-gen_model = tf.keras.models.load_model(os.path.join('objects', f'gen_model_{dim:03d}-{epoch:03d}.h5'))
-
-images = (gen_model(fixed_z) + 1) / 2
 
 fig = plt.figure(figsize=(n_cols, 1.2 * n_rows), dpi=300)
 for i in range(batch_size):
@@ -28,9 +30,8 @@ for i in range(batch_size):
     ax.imshow(images[i])
 
 plt.tight_layout()
-plt.savefig(os.path.join('logs', 'testing', f'faces_{dim:03d}-{epoch:03d}.png'))
-
-add_index = [54, 59, 62]
+plt.savefig(os.path.join(dataset, 'testing', f'faces_{epoch:03d}.png'))
+plt.close(fig)
 
 n_rows = 1
 n_cols = len(add_index) + 1
@@ -73,4 +74,5 @@ ax.text(0.5, 1.1, f'Composite', size=10, horizontalalignment='center', verticala
 ax.imshow(image_sum[0])
 
 plt.tight_layout()
-plt.savefig(os.path.join('logs', 'testing', f'face-composite_{dim:03d}-{epoch:03d}.png'))
+plt.savefig(os.path.join(dataset, 'testing', f'composite_{epoch:03d}.png'))
+plt.close(fig)

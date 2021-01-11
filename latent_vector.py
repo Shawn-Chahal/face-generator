@@ -5,15 +5,17 @@ import os
 
 tf.random.set_seed(1)
 
+dataset = "flickr_faces"
 z_size = 128
-epoch = 65
+epoch = 1239
+
 max_sdev = 10
 values = (-max_sdev, max_sdev)
 n_images = z_size * 2
 n_rows = 32
 n_cols = int(n_images / n_rows)
 
-gen_model = tf.keras.models.load_model(os.path.join('objects', f'gen_model_{epoch:03d}.h5'))
+gen_model = tf.keras.models.load_model(os.path.join(dataset, "best_networks", f'gen_model-{epoch:04d}.h5'))
 
 fig = plt.figure(figsize=(n_cols, 1.2 * n_rows), dpi=300)
 for i in range(z_size):
@@ -34,4 +36,4 @@ for i in range(z_size):
         ax.imshow(images[j])
 
 plt.tight_layout()
-plt.savefig(os.path.join('logs', 'testing', f'latent_{epoch:03d}.png'))
+plt.savefig(os.path.join(dataset, 'testing', f'latent_{epoch:03d}.png'))
