@@ -1,6 +1,6 @@
 # Face Generator
 
-This repository trains a Wasserstein Generative Adversarial Network with Gradient Penalty on the [CelebA](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html) dataset using [TensorFlow](https://github.com/tensorflow/tensorflow) in Python. The generator model is then used in the [Face Generator](https://www.shawnchahal.com/face-generator) web app.
+This repository trains a Wasserstein Generative Adversarial Network with Gradient Penalty on the [FFHQ](https://github.com/NVlabs/ffhq-dataset) dataset using [TensorFlow](https://github.com/tensorflow/tensorflow) in Python. The generator model is then used in the [Face Generator](https://www.shawnchahal.com/face-generator) web app.
 
 ## What does the app do?
 
