@@ -1,92 +1,33 @@
+import os
+import time
+from collections import namedtuple
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 
-import os
-import pickle
-import time
+import dataset_info
 
 
-def learning_curve(width, height):
-    fig = plt.figure(figsize=(width, height), dpi=600)
+def process_image_path(image_path):
+    img = tf.io.read_file(image_path)
+    img = tf.io.decode_image(img, channels=CHANNELS, dtype=tf.float32)
 
-    ax = fig.add_subplot(1, 1, 1)
-    ax.plot(dict_loss["Images trained"], dict_loss["Loss (G)"], label="Generator")
-    ax.plot(dict_loss["Images trained"], dict_loss["Loss (D)"], label="Discriminator")
-    ax.legend()
-    ax.set_xlabel("Images trained")
-    ax.set_ylabel("Loss")
+    if DATASET.name is dataset_info.celeba.name:
+        img = tf.image.resize_with_crop_or_pad(img, 178, 178)
 
-    plt.tight_layout()
-    plt.savefig(os.path.join(dataset, "logs", "learning_curve.png"))
-    plt.close(fig)
+    img = tf.image.resize(img, size=(GEN_DIM, GEN_DIM))
+    img = tf.image.random_flip_left_right(img)
+    img = tf.math.multiply(img, 2)
+    img = tf.math.subtract(img, 1)
 
+    z_vector = tf.random.normal(shape=(Z_SIZE,), seed=1)
 
-def dashboard(width, height):
-    n_rows = 1
-    n_cols = 5
-
-    fig = plt.figure(figsize=(width, height), dpi=600)
-
-    labels = ["Loss (G)", "Loss (D)", "Loss (D-Real)", "Loss (D-Fake)", "Loss (D-GP)"]
-    colors = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple"]
-
-    for i, (label, color) in enumerate(zip(labels, colors), 1):
-        ax = fig.add_subplot(n_rows, n_cols, i)
-        ax.plot(dict_loss["Images trained"], dict_loss[label], color=color)
-        ax.set_xlabel("Images trained")
-        ax.set_ylabel(label)
-
-    plt.tight_layout()
-    plt.savefig(os.path.join(dataset, "logs", "learning_curve_dashboard.png"))
-    plt.close(fig)
+    return z_vector, img
 
 
-def plot_images(gen_images):
-    image_batch = (gen_images.numpy() + 1) / 2
-    fig = plt.figure(figsize=(n_cols, n_rows), dpi=300)
-    for i in range(n_rows * n_cols):
-        ax = fig.add_subplot(n_rows, n_cols, i + 1)
-        ax.set_xticks([])
-        ax.set_yticks([])
-        ax.imshow(image_batch[i])
-
-    plt.tight_layout()
-    plt.savefig(os.path.join(dataset, "logs", "generated_faces", f"generated_faces_{model_version:04d}.png"))
-    plt.savefig(os.path.join(dataset, "logs", f"generated_faces_latest.png"))
-
-    if model_version % git_log_frequency == 0:
-        plt.savefig(os.path.join(dataset, "logs", f"generated_faces_{model_version:04d}.png"))
-
-    plt.close(fig)
-
-
-def get_time(t):
-    hours = int(t / 3600)
-    t = t - 3600 * hours
-    minutes = int(t / 60)
-    t = t - 60 * minutes
-    seconds = int(t)
-
-    return hours, minutes, seconds
-
-
-def load_optimizers():
-    g_optimizer = pickle.load(open(os.path.join(dataset, "objects", "g_optimizer.pkl"), "rb"))
-    d_optimizer = pickle.load(open(os.path.join(dataset, "objects", "d_optimizer.pkl"), "rb"))
-
-    return g_optimizer, d_optimizer
-
-
-def load_network():
-    gen_model = tf.keras.models.load_model(os.path.join(dataset, "objects", f"gen_model-{model_version:04d}.h5"))
-    disc_model = tf.keras.models.load_model(os.path.join(dataset, "objects", f"disc_model-{model_version:04d}.h5"))
-
-    return gen_model, disc_model
-
-
-def create_network(skips=True):
+def create_network():
     min_dim = 4
     output_dim = min_dim + 0
 
@@ -95,8 +36,8 @@ def create_network(skips=True):
     gen_inputs = tf.keras.Input(shape=(Z_SIZE,))
     gen_hidden = tf.keras.layers.Reshape((1, 1, Z_SIZE))(gen_inputs)
 
-    gen_hidden = tf.keras.layers.Conv2DTranspose(filters=FILTERS[output_dim], kernel_size=output_dim, use_bias=False)(
-        gen_hidden)
+    gen_hidden = tf.keras.layers.Conv2DTranspose(filters=FILTERS[output_dim], kernel_size=output_dim,
+                                                 use_bias=False)(gen_hidden)
     gen_hidden = tf.keras.layers.BatchNormalization()(gen_hidden)
     gen_hidden = tf.keras.layers.LeakyReLU()(gen_hidden)
 
@@ -111,26 +52,31 @@ def create_network(skips=True):
 
         gen_hidden = tf.keras.layers.BatchNormalization()(gen_hidden)
         gen_hidden = tf.keras.layers.LeakyReLU()(gen_hidden)
+
+        if DOUBLE_BLOCK:
+            gen_hidden = tf.keras.layers.Conv2DTranspose(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
+                                                         padding="same", use_bias=False, strides=1)(gen_hidden)
+
+            gen_hidden = tf.keras.layers.BatchNormalization()(gen_hidden)
+            gen_hidden = tf.keras.layers.LeakyReLU()(gen_hidden)
+
         gen_rgb.append(tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE, padding="same",
                                                        use_bias=False)(gen_hidden))
 
-    if skips:
-        gen_outputs = gen_rgb[0]
+    gen_outputs = gen_rgb[0]
 
-        for gen_rgb_skip in gen_rgb[1:]:
-            gen_outputs = tf.keras.layers.UpSampling2D(size=2, interpolation='bilinear')(gen_outputs)
-            gen_outputs = tf.keras.layers.Add()([gen_outputs, gen_rgb_skip])
+    for gen_rgb_skip in gen_rgb[1:]:
+        gen_outputs = tf.keras.layers.UpSampling2D(size=2, interpolation='bilinear')(gen_outputs)
+        gen_outputs = tf.keras.layers.Add()([gen_outputs, gen_rgb_skip])
 
-        gen_outputs = tf.keras.layers.Activation("tanh")(gen_outputs)
-    else:
-        gen_outputs = tf.keras.layers.Activation("tanh")(gen_rgb[-1])
+    gen_outputs = tf.keras.layers.Activation("tanh")(gen_outputs)
 
-    gen_model = tf.keras.Model(inputs=gen_inputs, outputs=gen_outputs)
+    nn_gen_model = tf.keras.Model(inputs=gen_inputs, outputs=gen_outputs)
 
     disc_inputs = tf.keras.Input(shape=(output_dim, output_dim, CHANNELS))
     disc_skip = disc_inputs
-    disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE, padding="same"
-                                          )(disc_inputs)
+    disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
+                                          padding="same")(disc_inputs)
     disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
     disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
 
@@ -140,11 +86,17 @@ def create_network(skips=True):
         disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE, padding="same",
                                               strides=2)(disc_outputs)
 
-        disc_skip = tf.keras.layers.AveragePooling2D(pool_size=2, padding='same')(disc_skip)
-        disc_frgb = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE, padding="same"
-                                           )(disc_skip)
+        if DOUBLE_BLOCK:
+            disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
+            disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
+            disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE, padding="same",
+                                                  strides=1)(disc_outputs)
 
-        disc_outputs = tf.keras.layers.Average()([disc_outputs, disc_frgb])
+        disc_skip = tf.keras.layers.AveragePooling2D(pool_size=2, padding='same')(disc_skip)
+        disc_from_rgb = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
+                                               padding="same")(disc_skip)
+
+        disc_outputs = tf.keras.layers.Average()([disc_outputs, disc_from_rgb])
         disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
         disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
 
@@ -152,95 +104,167 @@ def create_network(skips=True):
     disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
     disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
     disc_outputs = tf.keras.layers.Flatten()(disc_outputs)
-    disc_outputs = tf.keras.layers.Dense(1)(disc_outputs)
+    disc_outputs = tf.keras.layers.Dense(units=1)(disc_outputs)
 
-    disc_model = tf.keras.Model(inputs=disc_inputs, outputs=disc_outputs)
+    nn_disc_model = tf.keras.Model(inputs=disc_inputs, outputs=disc_outputs)
 
-    with open(os.path.join(dataset, "logs", f"gen_model_summary.txt"), "w") as f_gen_model_summary:
-        gen_model.summary(print_fn=(lambda x: f_gen_model_summary.write(f"{x}\n")))
+    with open(os.path.join(DATASET.name, S_LOGS, f"gen_model_summary.txt"), "w") as f_gen_model_summary:
+        nn_gen_model.summary(print_fn=(lambda x: f_gen_model_summary.write(f"{x}\n")))
 
-    gen_model.summary()
+    nn_gen_model.summary()
 
-    with open(os.path.join(dataset, "logs", f"disc_model_summary.txt"), "w") as f_disc_model_summary:
-        disc_model.summary(print_fn=(lambda x: f_disc_model_summary.write(f"{x}\n")))
+    with open(os.path.join(DATASET.name, S_LOGS, f"disc_model_summary.txt"), "w") as f_disc_model_summary:
+        nn_disc_model.summary(print_fn=(lambda x: f_disc_model_summary.write(f"{x}\n")))
 
-    disc_model.summary()
+    nn_disc_model.summary()
 
-    return gen_model, disc_model
+    return nn_gen_model, nn_disc_model
 
 
-def process_path(file_path):
-    img = tf.io.read_file(file_path)
-    img = tf.io.decode_image(img, channels=CHANNELS, expand_animations=False)
-    img = tf.image.convert_image_dtype(img, tf.float32)
+def load_network():
+    nn_gen_model = tf.keras.models.load_model(get_model_path(S_G))
+    nn_disc_model = tf.keras.models.load_model(get_model_path(S_D))
 
-    if dataset is "celeba":
-        img = tf.image.resize_with_crop_or_pad(img, 178, 178)
+    return nn_gen_model, nn_disc_model
 
-    img = tf.image.resize(img, size=(GEN_DIM, GEN_DIM))
-    img = tf.image.random_flip_left_right(img)
 
-    img = img * 2 - 1.0
+def get_model_path(model_type):
+    return os.path.join(DATASET.name, S_OBJECTS, f"{model_type}_model-{model_version:04d}.h5")
 
-    z_vector = tf.random.normal(shape=(Z_SIZE,))
 
-    return z_vector, img
+def get_optimizer_weights_path(optimizer_type):
+    return os.path.join(DATASET.name, S_OBJECTS, f"{optimizer_type}_optimizer_weights.pkl")
+
+
+def get_print_time(t):
+    days = int(t / 86400)
+    t = t - 86400 * days
+    hours = int(t / 3600)
+    t = t - 3600 * hours
+    minutes = int(t / 60)
+    t = t - 60 * minutes
+    seconds = int(t)
+
+    return ReadableTime(days, hours, minutes, seconds)
+
+
+def plot_learning_curve():
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 4), dpi=600, constrained_layout=True)
+    ax.plot(dict_loss["Images trained"], dict_loss["Loss (G)"], label="Generator")
+    ax.plot(dict_loss["Images trained"], dict_loss["Loss (D)"], label="Discriminator")
+    ax.legend()
+    ax.set_xlim(left=0)
+    ax.set_xlabel("Images trained")
+    ax.set_ylabel("Loss")
+
+    fig.savefig(os.path.join(DATASET.name, S_LOGS, "learning_curve.png"))
+    plt.close(fig)
+
+
+def plot_dashboard():
+    fig, axs = plt.subplots(nrows=1, ncols=5, figsize=(20, 4), dpi=600, constrained_layout=True)
+    axs = axs.ravel()
+
+    labels = ["Loss (G)", "Loss (D)", "Loss (D-Real)", "Loss (D-Fake)", "Loss (D-GP)"]
+    colors = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple"]
+
+    for ax, label, color in zip(axs, labels, colors):
+        ax.plot(dict_loss["Images trained"], dict_loss[label], color=color)
+        ax.set_xlim(left=0)
+        ax.set_xlabel("Images trained")
+        ax.set_ylabel(label)
+
+    fig.savefig(os.path.join(DATASET.name, S_LOGS, "learning_curve_dashboard.png"))
+    plt.close(fig)
+
+
+def plot_generator_images():
+    gen_images = g_model(FIXED_Z)
+    image_batch = (gen_images.numpy() + 1) / 2
+
+    n_cols = int(np.ceil(np.sqrt(BATCH_SIZE)))
+    n_rows = int(np.ceil(BATCH_SIZE / n_cols))
+
+    fig = plt.figure(figsize=(n_cols, n_rows), dpi=300, constrained_layout=True)
+    for i in range(n_rows * n_cols):
+        ax = fig.add_subplot(n_rows, n_cols, i + 1)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.imshow(image_batch[i])
+
+    fig.savefig(os.path.join(DATASET.name, S_GENERATED_FACES_LOCAL, f"generated_faces_{model_version:04d}.png"))
+    fig.savefig(os.path.join(DATASET.name, S_LOGS, f"generated_faces_latest.png"))
+
+    if model_version % LOG_FREQUENCY_GIT == 0:
+        plt.savefig(os.path.join(DATASET.name, S_GENERATED_FACES, f"generated_faces_{model_version:04d}.png"))
+
+    plt.close(fig)
 
 
 tf.random.set_seed(1)
+model_version = 2
 
-image_dict = {
-    "celeba": str(os.path.join("photos", "img_align_celeba", "*.jpg")),
-    "flickr_faces": str(os.path.join("photos", "thumbnails128x128", "*", "*.png")),
-}
+ReadableTime = namedtuple('ReadableTime', ['days', 'hours', 'minutes', 'seconds'])
 
-dataset = "flickr_faces"
-model_version = 1239
-log_frequency = 12 * 60  # seconds
-git_log_frequency = 100  # versions
+S_LOGS = "logs"
+S_OBJECTS = "objects"
+S_GENERATED_FACES_LOCAL = "generated_faces_local"
+S_GENERATED_FACES = "generated_faces"
+S_G = "g"
+S_D = "d"
 
-GEN_DIM = 128
+DATASET = dataset_info.celeba
+
+LOG_FREQUENCY = 12 * 60  # seconds
+LOG_FREQUENCY_GIT = 20  # versions
+
 BATCH_SIZE = 16
-
-Z_SIZE = 128
-FILTERS = {4: 512, 8: 512, 16: 256, 32: 128, 64: 64, 128: 32}
-CHANNELS = 3
-KERNEL_SIZE = 5
 BUFFER_SIZE = 4096
 
+DOUBLE_BLOCK = True
+
+GEN_DIM = 128
+KERNEL_SIZE = 3
+Z_SIZE = 128
+
+FILTERS = {
+    4: 512,
+    8: 512,
+    16: 256,
+    32: 256,
+    64: 128,
+    128: 64
+}
+
+CHANNELS = 3
 LAMBDA_GP = 10
 BETA_1 = 0
 G_LR = 0.0001  # Generator learning rate
 D_LR = 0.0004  # Discriminator learning rate
 
-images_path = image_dict[dataset]
+FIXED_Z = tf.random.normal(shape=(BATCH_SIZE, Z_SIZE))
 
-n_rows = 4
-n_cols = BATCH_SIZE // n_rows
-fixed_z = tf.random.normal(shape=(n_rows * n_cols, Z_SIZE))
-
-list_ds = tf.data.Dataset.list_files(images_path)
-n_images = len(list(list_ds))
-list_ds.shuffle(buffer_size=n_images, reshuffle_each_iteration=False)
-ds = list_ds.map(process_path)
+list_ds = tf.data.Dataset.list_files(DATASET.glob)
+list_ds = list_ds.shuffle(buffer_size=len(list(list_ds)), reshuffle_each_iteration=False)
+ds = list_ds.map(process_image_path)
 ds = ds.shuffle(buffer_size=BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True).repeat()
 
+g_optimizer = tf.keras.optimizers.Adam(learning_rate=G_LR, beta_1=BETA_1)
+d_optimizer = tf.keras.optimizers.Adam(learning_rate=D_LR, beta_1=BETA_1)
+
 if model_version == 0:
-    gen_model, disc_model = create_network()
+    g_model, d_model = create_network()
+
     dict_loss = {"Model version": [], "Images trained": [], "Time [s]": [], "Loss (G)": [], "Loss (D)": [],
                  "Loss (D-Real)": [], "Loss (D-Fake)": [], "Loss (D-GP)": []}
-
-    g_optimizer = tf.keras.optimizers.Adam(learning_rate=G_LR, beta_1=BETA_1)
-    d_optimizer = tf.keras.optimizers.Adam(learning_rate=D_LR, beta_1=BETA_1)
 
     initial_batch_count = 0
     start_time = time.time()
 
 else:
-    gen_model, disc_model = load_network()
-    g_optimizer, d_optimizer = load_optimizers()
+    g_model, d_model = load_network()
 
-    dict_loss = pd.read_csv(os.path.join(dataset, "logs", "loss.csv")).to_dict("list")
+    dict_loss = pd.read_csv(os.path.join(DATASET.name, S_LOGS, "loss.csv")).to_dict("list")
     initial_batch_count = int(dict_loss["Images trained"][-1] / BATCH_SIZE)
     start_time = time.time() - dict_loss["Time [s]"][-1]
 
@@ -248,13 +272,13 @@ last_status = time.time()
 last_batch_count = initial_batch_count
 last_status_loss = {"G": [], "D": [], "D-Real": [], "D-Fake": [], "D-GP": []}
 
-for batch_count, (input_z, input_real) in enumerate(ds, initial_batch_count):
+for batch_count, (input_z, input_real) in enumerate(ds, start=initial_batch_count):
 
     with tf.GradientTape() as d_tape, tf.GradientTape() as g_tape:
-        g_output = gen_model(input_z, training=True)
+        g_output = g_model(input_z, training=True)
 
-        d_critics_real = disc_model(input_real, training=True)
-        d_critics_fake = disc_model(g_output, training=True)
+        d_critics_real = d_model(input_real, training=True)
+        d_critics_fake = d_model(g_output, training=True)
 
         g_loss = -tf.math.reduce_mean(d_critics_fake)
 
@@ -262,24 +286,24 @@ for batch_count, (input_z, input_real) in enumerate(ds, initial_batch_count):
         d_loss_fake = tf.math.reduce_mean(d_critics_fake)
 
         with tf.GradientTape() as gp_tape:
-            alpha = tf.random.uniform(shape=[d_critics_real.shape[0], 1, 1, 1], minval=0.0, maxval=1.0)
+            alpha = tf.random.uniform(shape=[BATCH_SIZE, 1, 1, 1], minval=0.0, maxval=1.0)
             interpolated = alpha * input_real + (1 - alpha) * g_output
             gp_tape.watch(interpolated)
-            d_critics_intp = disc_model(interpolated)
+            d_critics_intp = d_model(interpolated)
 
         grads_intp = gp_tape.gradient(d_critics_intp, [interpolated])[0]
 
         grads_intp_l2 = tf.sqrt(tf.reduce_sum(tf.square(grads_intp), axis=[1, 2, 3]))
-        grad_penalty = tf.reduce_mean(tf.square(grads_intp_l2 - 1.0))
+        grad_penalty = tf.reduce_mean(tf.square(tf.subtract(grads_intp_l2, 1)))
 
-        d_loss_gp = LAMBDA_GP * grad_penalty
-        d_loss = d_loss_real + d_loss_fake + d_loss_gp
+        d_loss_gp = tf.math.multiply(grad_penalty, LAMBDA_GP)
+        d_loss = tf.math.accumulate_n([d_loss_real, d_loss_fake, d_loss_gp])
 
-    d_grads = d_tape.gradient(d_loss, disc_model.trainable_variables)
-    d_optimizer.apply_gradients(zip(d_grads, disc_model.trainable_variables))
+    d_grads = d_tape.gradient(d_loss, d_model.trainable_variables)
+    d_optimizer.apply_gradients(zip(d_grads, d_model.trainable_variables))
 
-    g_grads = g_tape.gradient(g_loss, gen_model.trainable_variables)
-    g_optimizer.apply_gradients(zip(g_grads, gen_model.trainable_variables))
+    g_grads = g_tape.gradient(g_loss, g_model.trainable_variables)
+    g_optimizer.apply_gradients(zip(g_grads, g_model.trainable_variables))
 
     last_status_loss["G"].append(g_loss.numpy())
     last_status_loss["D"].append(d_loss.numpy())
@@ -287,15 +311,13 @@ for batch_count, (input_z, input_real) in enumerate(ds, initial_batch_count):
     last_status_loss["D-Fake"].append(d_loss_fake.numpy())
     last_status_loss["D-GP"].append(d_loss_gp.numpy())
 
-    if time.time() - last_status > log_frequency:
+    if time.time() - last_status > LOG_FREQUENCY:
         model_version += 1
-        gen_model.save(os.path.join(dataset, "objects", f"gen_model-{model_version:04d}.h5"))
-        disc_model.save(os.path.join(dataset, "objects", f"disc_model-{model_version:04d}.h5"))
-        pickle.dump(g_optimizer, open(os.path.join(dataset, "objects", "g_optimizer.pkl"), "wb"))
-        pickle.dump(d_optimizer, open(os.path.join(dataset, "objects", "d_optimizer.pkl"), "wb"))
+        g_model.save(get_model_path(S_G))
+        d_model.save(get_model_path(S_D))
 
         total_time = time.time() - start_time
-        total_time_r = get_time(total_time)
+        print_time = get_print_time(total_time)
         images_per_hour = BATCH_SIZE * (batch_count - last_batch_count) / (time.time() - last_status) * 3600
 
         dict_loss["Time [s]"].append(total_time)
@@ -307,15 +329,15 @@ for batch_count, (input_z, input_real) in enumerate(ds, initial_batch_count):
         dict_loss["Images trained"].append(BATCH_SIZE * batch_count)
         dict_loss["Model version"].append(model_version)
 
-        pd.DataFrame.from_dict(dict_loss).to_csv(os.path.join(dataset, "logs", "loss.csv"), index=False)
+        pd.DataFrame.from_dict(dict_loss).to_csv(os.path.join(DATASET.name, S_LOGS, "loss.csv"), index=False)
 
-        learning_curve(6, 4)
-        dashboard(20, 4)
-        plot_images(gen_model(fixed_z))
+        plot_learning_curve()
+        plot_dashboard()
+        plot_generator_images()
 
         print(
             f"Version: {dict_loss['Model version'][-1]:4d} | Images trained: {dict_loss['Images trained'][-1]:8d} | "
-            f"Time: {total_time_r[0]}:{total_time_r[1]:02d}:{total_time_r[2]:02d} | "
+            f"Time: {print_time.days}:{print_time.hours}:{print_time.minutes:02d}:{print_time.seconds:02d} | "
             f"G loss: {dict_loss['Loss (G)'][-1]:6.2f} | D loss: {dict_loss['Loss (D)'][-1]:6.2f} "
             f"(D-Real: {dict_loss['Loss (D-Real)'][-1]:6.2f}, D-Fake: {dict_loss['Loss (D-Fake)'][-1]:6.2f}, "
             f"D-GP: {dict_loss['Loss (D-GP)'][-1]:6.2f}) | Images per hour: {images_per_hour:6.0f}"

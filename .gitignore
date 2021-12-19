@@ -1,4 +1,4 @@
-photos/
-objects/
 .idea/
-generated_faces/
+objects/
+generated_faces_local/
+dataset_info.py
