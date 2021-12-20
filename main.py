@@ -202,7 +202,7 @@ def plot_generator_images():
 
 
 tf.random.set_seed(1)
-model_version = 101
+model_version = 166
 
 ReadableTime = namedtuple('ReadableTime', ['days', 'hours', 'minutes', 'seconds'])
 
@@ -240,7 +240,7 @@ CHANNELS = 3
 LAMBDA_GP = 10
 BETA_1 = 0
 G_LR = 0.0001  # Generator learning rate
-D_LR = 0.0004  # Discriminator learning rate
+D_LR = 0.001  # Discriminator learning rate
 
 FIXED_Z = tf.random.normal(shape=(BATCH_SIZE, Z_SIZE))
 
