@@ -1,0 +1,32 @@
+DATASET = dataset_info.celeba
+
+LOG_FREQUENCY = 12 * 60  # seconds
+LOG_FREQUENCY_GIT = 20  # versions
+
+BUFFER_SIZE = 4096
+BATCH_SIZE = 16
+
+"""Tunable parameters"""
+
+DOUBLE_BLOCK = True
+
+GEN_DIM = 128
+KERNEL_SIZE = 3
+Z_SIZE = 128
+
+FILTERS = {
+    4: 512,
+    8: 512,
+    16: 256,
+    32: 256,
+    64: 128,
+    128: 64
+}
+
+"""Tunable parameters"""
+
+CHANNELS = 3
+LAMBDA_GP = 10
+BETA_1 = 0
+G_LR = 0.0001  # Generator learning rate
+D_LR = 0.0004  # Discriminator learning rate

@@ -202,7 +202,7 @@ def plot_generator_images():
 
 
 tf.random.set_seed(1)
-model_version = 166
+model_version = 0
 
 ReadableTime = namedtuple('ReadableTime', ['days', 'hours', 'minutes', 'seconds'])
 
@@ -218,29 +218,43 @@ DATASET = dataset_info.celeba
 LOG_FREQUENCY = 12 * 60  # seconds
 LOG_FREQUENCY_GIT = 20  # versions
 
-BATCH_SIZE = 16
 BUFFER_SIZE = 4096
+BATCH_SIZE = 16
 
-DOUBLE_BLOCK = True
+"""Tunable parameters"""
 
-GEN_DIM = 128
+"""GOAL: Find best parameters when GEN_DIM = 64, then apply to GEN_DIM = 128"""
+
+"""Paramater 1"""
+GEN_DIM = 64
+# GEN_DIM = 128
+
+"""Paramater 2"""
+DOUBLE_BLOCK = False
 KERNEL_SIZE = 3
-Z_SIZE = 128
 
-FILTERS = {
-    4: 512,
-    8: 512,
-    16: 256,
-    32: 256,
-    64: 128,
-    128: 64
-}
+# DOUBLE_BLOCK = False
+# KERNEL_SIZE = 5
+
+# DOUBLE_BLOCK = True
+# KERNEL_SIZE = 3
+
+"""Paramater 3"""
+Z_SIZE = 128
+# Z_SIZE = 256
+
+"""Paramater 4"""
+FILTERS = {4: 512, 8: 256, 16: 128, 32: 64, 64: 32, 128: 16}
+# FILTERS = {    4: 512,    8: 512,    16: 256,    32: 128,    64:  64,    128: 32}
+# FILTERS = {    4: 512,    8: 512,    16: 256,    32: 256,    64: 128,    128: 64}
+
+"""Tunable parameters"""
 
 CHANNELS = 3
 LAMBDA_GP = 10
 BETA_1 = 0
 G_LR = 0.0001  # Generator learning rate
-D_LR = 0.001  # Discriminator learning rate
+D_LR = 0.0003  # Discriminator learning rate
 
 FIXED_Z = tf.random.normal(shape=(BATCH_SIZE, Z_SIZE))
 
