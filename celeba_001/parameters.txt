@@ -15,11 +15,11 @@ GEN_DIM = 64
 # GEN_DIM = 128
 
 """Paramater 2"""
-# DOUBLE_BLOCK = False
-# KERNEL_SIZE = 3
-
 DOUBLE_BLOCK = False
-KERNEL_SIZE = 5
+KERNEL_SIZE = 3
+
+# DOUBLE_BLOCK = False
+# KERNEL_SIZE = 5
 
 # DOUBLE_BLOCK = True
 # KERNEL_SIZE = 3
