@@ -80,21 +80,32 @@ def create_network():
     disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
     disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
 
+    if DOUBLE_BLOCK:
+        disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
+                                              padding="same")(disc_outputs)
+        disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
+        disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
+
     while output_dim > min_dim:
         output_dim = output_dim // 2
 
         disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE, padding="same",
                                               strides=2)(disc_outputs)
 
-        if DOUBLE_BLOCK:
-            disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
-            disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
-            disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE, padding="same",
-                                                  strides=1)(disc_outputs)
-
         disc_skip = tf.keras.layers.AveragePooling2D(pool_size=2, padding='same')(disc_skip)
         disc_from_rgb = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
                                                padding="same")(disc_skip)
+
+        if DOUBLE_BLOCK:
+            disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
+            disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
+            disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
+                                                  padding="same")(disc_outputs)
+
+            disc_from_rgb = tf.keras.layers.LayerNormalization()(disc_from_rgb)
+            disc_from_rgb = tf.keras.layers.LeakyReLU()(disc_from_rgb)
+            disc_from_rgb = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
+                                                   padding="same")(disc_from_rgb)
 
         disc_outputs = tf.keras.layers.Average()([disc_outputs, disc_from_rgb])
         disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
@@ -233,11 +244,11 @@ GEN_DIM = 64
 # DOUBLE_BLOCK = False
 # KERNEL_SIZE = 3
 
-DOUBLE_BLOCK = False
-KERNEL_SIZE = 5
+# DOUBLE_BLOCK = False
+# KERNEL_SIZE = 5
 
-# DOUBLE_BLOCK = True
-# KERNEL_SIZE = 3
+DOUBLE_BLOCK = True
+KERNEL_SIZE = 3
 
 """Paramater 3"""
 Z_SIZE = 128
