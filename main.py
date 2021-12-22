@@ -41,6 +41,13 @@ def create_network():
     gen_hidden = tf.keras.layers.BatchNormalization()(gen_hidden)
     gen_hidden = tf.keras.layers.LeakyReLU()(gen_hidden)
 
+    if DOUBLE_BLOCK:
+        gen_hidden = tf.keras.layers.Conv2DTranspose(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
+                                                     padding="same", use_bias=False)(gen_hidden)
+
+        gen_hidden = tf.keras.layers.BatchNormalization()(gen_hidden)
+        gen_hidden = tf.keras.layers.LeakyReLU()(gen_hidden)
+
     gen_rgb.append(
         tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE, padding="same",
                                         use_bias=False)(gen_hidden))
@@ -55,7 +62,7 @@ def create_network():
 
         if DOUBLE_BLOCK:
             gen_hidden = tf.keras.layers.Conv2DTranspose(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
-                                                         padding="same", use_bias=False, strides=1)(gen_hidden)
+                                                         padding="same", use_bias=False)(gen_hidden)
 
             gen_hidden = tf.keras.layers.BatchNormalization()(gen_hidden)
             gen_hidden = tf.keras.layers.LeakyReLU()(gen_hidden)
