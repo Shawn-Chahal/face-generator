@@ -239,6 +239,9 @@ LOG_FREQUENCY_GIT = 20  # versions
 BUFFER_SIZE = 4096
 BATCH_SIZE = 16
 
+DOUBLE_BLOCK = False
+KERNEL_SIZE = 5
+
 """Tunable parameters"""
 
 """GOAL: Find best parameters when GEN_DIM = 64, then apply to GEN_DIM = 128"""
@@ -248,20 +251,10 @@ GEN_DIM = 64
 # GEN_DIM = 128
 
 """Paramater 2"""
-# DOUBLE_BLOCK = False
-# KERNEL_SIZE = 3
-
-# DOUBLE_BLOCK = False
-# KERNEL_SIZE = 5
-
-DOUBLE_BLOCK = True
-KERNEL_SIZE = 3
+# Z_SIZE = 128
+Z_SIZE = 256
 
 """Paramater 3"""
-Z_SIZE = 128
-# Z_SIZE = 256
-
-"""Paramater 4"""
 FILTERS = {4: 512, 8: 256, 16: 128, 32: 64, 64: 32, 128: 16}
 # FILTERS = {    4: 512,    8: 512,    16: 256,    32: 128,    64:  64,    128: 32}
 # FILTERS = {    4: 512,    8: 512,    16: 256,    32: 256,    64: 128,    128: 64}
