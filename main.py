@@ -201,10 +201,10 @@ def plot_generator_images():
     image_batch = (gen_images.numpy() + 1) / 2
 
     n_cols = int(np.ceil(np.sqrt(BATCH_SIZE)))
-    n_rows = int(np.ceil(BATCH_SIZE / n_cols))
+    n_rows = int(BATCH_SIZE / n_cols)
 
     fig = plt.figure(figsize=(n_cols, n_rows), dpi=300, constrained_layout=True)
-    for i in range(n_rows * n_cols):
+    for i in range(n_cols * n_rows):
         ax = fig.add_subplot(n_rows, n_cols, i + 1)
         ax.set_xticks([])
         ax.set_yticks([])
@@ -237,7 +237,7 @@ LOG_FREQUENCY = 12 * 60  # seconds
 LOG_FREQUENCY_GIT = 20  # versions
 
 BUFFER_SIZE = 4096
-BATCH_SIZE = 16
+BATCH_SIZE = 64
 
 DOUBLE_BLOCK = False
 KERNEL_SIZE = 5
