@@ -214,7 +214,7 @@ def plot_generator_images():
     fig.savefig(os.path.join(DATASET.name, S_LOGS, f"generated_faces_latest.png"))
 
     if model_version % LOG_FREQUENCY_GIT == 0:
-        plt.savefig(os.path.join(DATASET.name, S_GENERATED_FACES, f"generated_faces_{model_version:04d}.png"))
+        fig.savefig(os.path.join(DATASET.name, S_GENERATED_FACES, f"generated_faces_{model_version:04d}.png"))
 
     plt.close(fig)
 
@@ -242,24 +242,10 @@ BATCH_SIZE = 16
 DOUBLE_BLOCK = False
 KERNEL_SIZE = 5
 
-"""Tunable parameters"""
+FILTERS = {4: 512, 8: 256, 16: 128, 32: 64, 64: 32, 128: 16}
 
-"""GOAL: Find best parameters when GEN_DIM = 64, then apply to GEN_DIM = 128"""
-
-"""Paramater 1"""
-GEN_DIM = 64
-# GEN_DIM = 128
-
-"""Paramater 2"""
-Z_SIZE = 128
-# Z_SIZE = 256
-
-"""Paramater 3"""
-# FILTERS = {4: 512, 8: 256, 16: 128, 32: 64, 64: 32, 128: 16}
-FILTERS = {4: 512, 8: 512, 16: 256, 32: 128, 64: 64, 128: 32}
-# FILTERS = {    4: 512,    8: 512,    16: 256,    32: 256,    64: 128,    128: 64}
-
-"""Tunable parameters"""
+GEN_DIM = 128
+Z_SIZE = 128  # 256
 
 CHANNELS = 3
 LAMBDA_GP = 10
