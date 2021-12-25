@@ -220,7 +220,7 @@ def plot_generator_images():
 
 
 tf.random.set_seed(1)
-model_version = 0
+model_version = 20
 
 ReadableTime = namedtuple('ReadableTime', ['days', 'hours', 'minutes', 'seconds'])
 
