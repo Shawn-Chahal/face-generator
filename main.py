@@ -23,6 +23,8 @@ def process_image_path(image_path):
     img = tf.math.subtract(img, 1)
 
     z_vector = tf.random.normal(shape=(Z_SIZE,), seed=1)
+    z_magnitude = tf.math.sqrt(tf.math.reduce_sum(tf.math.square(z_vector)))
+    z_vector = tf.math.divide(z_vector, z_magnitude)
 
     return z_vector, img
 
@@ -30,6 +32,8 @@ def process_image_path(image_path):
 def create_network():
     min_dim = 4
     output_dim = min_dim + 0
+
+    """GENERATOR"""
 
     gen_rgb = []
 
@@ -39,17 +43,17 @@ def create_network():
     gen_hidden = tf.keras.layers.Conv2DTranspose(filters=FILTERS[output_dim], kernel_size=output_dim,
                                                  use_bias=False)(gen_hidden)
     gen_hidden = tf.keras.layers.BatchNormalization()(gen_hidden)
-    gen_hidden = tf.keras.layers.LeakyReLU()(gen_hidden)
+    gen_hidden = tf.keras.layers.LeakyReLU(alpha=LEAKY_RELU_ALPHA)(gen_hidden)
 
     if DOUBLE_BLOCK:
         gen_hidden = tf.keras.layers.Conv2DTranspose(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
                                                      padding="same", use_bias=False)(gen_hidden)
 
         gen_hidden = tf.keras.layers.BatchNormalization()(gen_hidden)
-        gen_hidden = tf.keras.layers.LeakyReLU()(gen_hidden)
+        gen_hidden = tf.keras.layers.LeakyReLU(alpha=LEAKY_RELU_ALPHA)(gen_hidden)
 
     gen_rgb.append(
-        tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE, padding="same",
+        tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE_RGB, padding="same",
                                         use_bias=False)(gen_hidden))
 
     while output_dim < GEN_DIM:
@@ -58,40 +62,48 @@ def create_network():
                                                      padding="same", use_bias=False, strides=2)(gen_hidden)
 
         gen_hidden = tf.keras.layers.BatchNormalization()(gen_hidden)
-        gen_hidden = tf.keras.layers.LeakyReLU()(gen_hidden)
+        gen_hidden = tf.keras.layers.LeakyReLU(alpha=LEAKY_RELU_ALPHA)(gen_hidden)
 
         if DOUBLE_BLOCK:
             gen_hidden = tf.keras.layers.Conv2DTranspose(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
                                                          padding="same", use_bias=False)(gen_hidden)
 
             gen_hidden = tf.keras.layers.BatchNormalization()(gen_hidden)
-            gen_hidden = tf.keras.layers.LeakyReLU()(gen_hidden)
+            gen_hidden = tf.keras.layers.LeakyReLU(alpha=LEAKY_RELU_ALPHA)(gen_hidden)
 
-        gen_rgb.append(tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE, padding="same",
+        gen_rgb.append(tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE_RGB, padding="same",
                                                        use_bias=False)(gen_hidden))
 
     gen_outputs = gen_rgb[0]
 
     for gen_rgb_skip in gen_rgb[1:]:
-        gen_outputs = tf.keras.layers.UpSampling2D(size=2, interpolation='bilinear')(gen_outputs)
+        gen_outputs = tf.keras.layers.UpSampling2D()(gen_outputs)
         gen_outputs = tf.keras.layers.Add()([gen_outputs, gen_rgb_skip])
 
     gen_outputs = tf.keras.layers.Activation("tanh")(gen_outputs)
 
     nn_gen_model = tf.keras.Model(inputs=gen_inputs, outputs=gen_outputs)
 
+    """DISCRIMINATOR"""
+
     disc_inputs = tf.keras.Input(shape=(output_dim, output_dim, CHANNELS))
     disc_skip = disc_inputs
-    disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
+
+    disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE_RGB,
                                           padding="same")(disc_inputs)
     disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
-    disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
+    disc_outputs = tf.keras.layers.LeakyReLU(alpha=LEAKY_RELU_ALPHA)(disc_outputs)
+
+    disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
+                                          padding="same")(disc_outputs)
+    disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
+    disc_outputs = tf.keras.layers.LeakyReLU(alpha=LEAKY_RELU_ALPHA)(disc_outputs)
 
     if DOUBLE_BLOCK:
         disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
                                               padding="same")(disc_outputs)
         disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
-        disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
+        disc_outputs = tf.keras.layers.LeakyReLU(alpha=LEAKY_RELU_ALPHA)(disc_outputs)
 
     while output_dim > min_dim:
         output_dim = output_dim // 2
@@ -99,32 +111,34 @@ def create_network():
         disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE, padding="same",
                                               strides=2)(disc_outputs)
 
-        disc_skip = tf.keras.layers.AveragePooling2D(pool_size=2, padding='same')(disc_skip)
-        disc_from_rgb = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
+        disc_skip = tf.keras.layers.AveragePooling2D(padding='same')(disc_skip)
+        disc_from_rgb = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE_RGB,
                                                padding="same")(disc_skip)
 
         if DOUBLE_BLOCK:
             disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
-            disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
+            disc_outputs = tf.keras.layers.LeakyReLU(alpha=LEAKY_RELU_ALPHA)(disc_outputs)
             disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
                                                   padding="same")(disc_outputs)
 
             disc_from_rgb = tf.keras.layers.LayerNormalization()(disc_from_rgb)
-            disc_from_rgb = tf.keras.layers.LeakyReLU()(disc_from_rgb)
+            disc_from_rgb = tf.keras.layers.LeakyReLU(alpha=LEAKY_RELU_ALPHA)(disc_from_rgb)
             disc_from_rgb = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
                                                    padding="same")(disc_from_rgb)
 
         disc_outputs = tf.keras.layers.Average()([disc_outputs, disc_from_rgb])
         disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
-        disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
+        disc_outputs = tf.keras.layers.LeakyReLU(alpha=LEAKY_RELU_ALPHA)(disc_outputs)
 
     disc_outputs = tf.keras.layers.Conv2D(filters=Z_SIZE, kernel_size=output_dim)(disc_outputs)
     disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
-    disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
+    disc_outputs = tf.keras.layers.LeakyReLU(alpha=LEAKY_RELU_ALPHA)(disc_outputs)
     disc_outputs = tf.keras.layers.Flatten()(disc_outputs)
     disc_outputs = tf.keras.layers.Dense(units=1)(disc_outputs)
 
     nn_disc_model = tf.keras.Model(inputs=disc_inputs, outputs=disc_outputs)
+
+    """FINISH"""
 
     with open(os.path.join(DATASET.name, S_LOGS, f"gen_model_summary.txt"), "w") as f_gen_model_summary:
         nn_gen_model.summary(print_fn=(lambda x: f_gen_model_summary.write(f"{x}\n")))
@@ -220,7 +234,7 @@ def plot_generator_images():
 
 
 tf.random.set_seed(1)
-model_version = 20
+model_version = 0
 
 ReadableTime = namedtuple('ReadableTime', ['days', 'hours', 'minutes', 'seconds'])
 
@@ -237,21 +251,28 @@ LOG_FREQUENCY = 12 * 60  # seconds
 LOG_FREQUENCY_GIT = 20  # versions
 
 BUFFER_SIZE = 4096
-BATCH_SIZE = 64
+BATCH_SIZE = 16
 
-DOUBLE_BLOCK = False
-KERNEL_SIZE = 5
+DOUBLE_BLOCK = True
+KERNEL_SIZE = 3
+KERNEL_SIZE_RGB = 1
 
-FILTERS = {4: 512, 8: 256, 16: 128, 32: 64, 64: 32, 128: 16}
+# TODO: Try pixelwise normalization instead of layer/batch norm?
+
+FILTERS = {4: 512, 8: 512, 16: 256, 32: 128, 64: 64, 128: 32}
 
 GEN_DIM = 128
-Z_SIZE = 128  # 256
+Z_SIZE = 512
+
+LEAKY_RELU_ALPHA = 0.2
 
 CHANNELS = 3
 LAMBDA_GP = 10
 BETA_1 = 0
-G_LR = 0.0001  # Generator learning rate
-D_LR = 0.0003  # Discriminator learning rate
+BETA_2 = 0.99  # 0.9
+EPSILON = 10 ** (-8)
+G_LR = 0.001  # Generator learning rate     (0.0001, 0.0001)
+D_LR = 0.001  # Discriminator learning rate (0.0001, 0.0003)
 
 FIXED_Z = tf.random.normal(shape=(BATCH_SIZE, Z_SIZE))
 
@@ -260,8 +281,8 @@ list_ds = list_ds.shuffle(buffer_size=len(list(list_ds)), reshuffle_each_iterati
 ds = list_ds.map(process_image_path)
 ds = ds.shuffle(buffer_size=BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True).repeat()
 
-g_optimizer = tf.keras.optimizers.Adam(learning_rate=G_LR, beta_1=BETA_1)
-d_optimizer = tf.keras.optimizers.Adam(learning_rate=D_LR, beta_1=BETA_1)
+g_optimizer = tf.keras.optimizers.Adam(learning_rate=G_LR, beta_1=BETA_1, beta_2=BETA_2, epsilon=EPSILON)
+d_optimizer = tf.keras.optimizers.Adam(learning_rate=D_LR, beta_1=BETA_1, beta_2=BETA_2, epsilon=EPSILON)
 
 if model_version == 0:
     g_model, d_model = create_network()
