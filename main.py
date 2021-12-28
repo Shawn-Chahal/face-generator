@@ -262,7 +262,7 @@ KERNEL_SIZE_RGB = 1
 FILTERS = {4: 512, 8: 512, 16: 256, 32: 128, 64: 64, 128: 32}
 
 GEN_DIM = 128
-Z_SIZE = 512
+Z_SIZE = 128
 
 LEAKY_RELU_ALPHA = 0.2
 
@@ -271,8 +271,8 @@ LAMBDA_GP = 10
 BETA_1 = 0
 BETA_2 = 0.99  # 0.9
 EPSILON = 10 ** (-8)
-G_LR = 0.0001
-D_LR = 0.0001  # 0.0003
+G_LR = 0.001  # 0.0001
+D_LR = 0.001  # 0.0003
 
 FIXED_Z = tf.random.normal(shape=(BATCH_SIZE, Z_SIZE))
 
