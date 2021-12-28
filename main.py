@@ -271,8 +271,8 @@ LAMBDA_GP = 10
 BETA_1 = 0
 BETA_2 = 0.99  # 0.9
 EPSILON = 10 ** (-8)
-G_LR = 0.001  # Generator learning rate     (0.0001, 0.0001)
-D_LR = 0.001  # Discriminator learning rate (0.0001, 0.0003)
+G_LR = 0.0001
+D_LR = 0.0001  # 0.0003
 
 FIXED_Z = tf.random.normal(shape=(BATCH_SIZE, Z_SIZE))
 
