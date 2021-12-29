@@ -23,8 +23,10 @@ def process_image_path(image_path):
     img = tf.math.subtract(img, 1)
 
     z_vector = tf.random.normal(shape=(Z_SIZE,), seed=1)
-    z_magnitude = tf.math.sqrt(tf.math.reduce_sum(tf.math.square(z_vector)))
-    z_vector = tf.math.divide(z_vector, z_magnitude)
+
+    if Z_VECTOR_SPHERICAL:
+        z_magnitude = tf.math.sqrt(tf.math.reduce_sum(tf.math.square(z_vector)))
+        z_vector = tf.math.divide(z_vector, z_magnitude)
 
     return z_vector, img
 
@@ -53,7 +55,7 @@ def create_network():
         gen_hidden = tf.keras.layers.LeakyReLU(alpha=LEAKY_RELU_ALPHA)(gen_hidden)
 
     gen_rgb.append(
-        tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE_RGB, padding="same",
+        tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE, padding="same",
                                         use_bias=False)(gen_hidden))
 
     while output_dim < GEN_DIM:
@@ -71,13 +73,13 @@ def create_network():
             gen_hidden = tf.keras.layers.BatchNormalization()(gen_hidden)
             gen_hidden = tf.keras.layers.LeakyReLU(alpha=LEAKY_RELU_ALPHA)(gen_hidden)
 
-        gen_rgb.append(tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE_RGB, padding="same",
+        gen_rgb.append(tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE, padding="same",
                                                        use_bias=False)(gen_hidden))
 
     gen_outputs = gen_rgb[0]
 
     for gen_rgb_skip in gen_rgb[1:]:
-        gen_outputs = tf.keras.layers.UpSampling2D()(gen_outputs)
+        gen_outputs = tf.keras.layers.UpSampling2D(interpolation="bilinear")(gen_outputs)
         gen_outputs = tf.keras.layers.Add()([gen_outputs, gen_rgb_skip])
 
     gen_outputs = tf.keras.layers.Activation("tanh")(gen_outputs)
@@ -89,13 +91,8 @@ def create_network():
     disc_inputs = tf.keras.Input(shape=(output_dim, output_dim, CHANNELS))
     disc_skip = disc_inputs
 
-    disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE_RGB,
-                                          padding="same")(disc_inputs)
-    disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
-    disc_outputs = tf.keras.layers.LeakyReLU(alpha=LEAKY_RELU_ALPHA)(disc_outputs)
-
     disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
-                                          padding="same")(disc_outputs)
+                                          padding="same")(disc_inputs)
     disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
     disc_outputs = tf.keras.layers.LeakyReLU(alpha=LEAKY_RELU_ALPHA)(disc_outputs)
 
@@ -112,7 +109,7 @@ def create_network():
                                               strides=2)(disc_outputs)
 
         disc_skip = tf.keras.layers.AveragePooling2D(padding='same')(disc_skip)
-        disc_from_rgb = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE_RGB,
+        disc_from_rgb = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
                                                padding="same")(disc_skip)
 
         if DOUBLE_BLOCK:
@@ -162,10 +159,6 @@ def load_network():
 
 def get_model_path(model_type):
     return os.path.join(DATASET.name, S_OBJECTS, f"{model_type}_model-{model_version:04d}.h5")
-
-
-def get_optimizer_weights_path(optimizer_type):
-    return os.path.join(DATASET.name, S_OBJECTS, f"{optimizer_type}_optimizer_weights.pkl")
 
 
 def get_print_time(t):
@@ -253,26 +246,30 @@ LOG_FREQUENCY_GIT = 20  # versions
 BUFFER_SIZE = 4096
 BATCH_SIZE = 16
 
-DOUBLE_BLOCK = True
-KERNEL_SIZE = 3
-KERNEL_SIZE_RGB = 1
+GEN_DIM = 128
+CHANNELS = 3
+FILTERS = {4: 512, 8: 512, 16: 256, 32: 128, 64: 64, 128: 32}
+
+LAMBDA_GP = 10
+BETA_1 = 0
+
+""" PARAMETERS START """
+
+LEAKY_RELU_ALPHA = 0.3  # 0.2
+
+Z_VECTOR_SPHERICAL = False  # True
+
+DOUBLE_BLOCK = False  # True
+KERNEL_SIZE = 5  # 3
+
+Z_SIZE = 128  # 512
+
+G_LR = 0.0001  # 0.001
+D_LR = 0.0003  # 0.001
 
 # TODO: Try pixelwise normalization instead of layer/batch norm?
 
-FILTERS = {4: 512, 8: 512, 16: 256, 32: 128, 64: 64, 128: 32}
-
-GEN_DIM = 128
-Z_SIZE = 128
-
-LEAKY_RELU_ALPHA = 0.2
-
-CHANNELS = 3
-LAMBDA_GP = 10
-BETA_1 = 0
-BETA_2 = 0.99  # 0.9
-EPSILON = 10 ** (-8)
-G_LR = 0.001  # 0.0001
-D_LR = 0.001  # 0.0003
+""" PARAMETERS END """
 
 FIXED_Z = tf.random.normal(shape=(BATCH_SIZE, Z_SIZE))
 
@@ -281,8 +278,8 @@ list_ds = list_ds.shuffle(buffer_size=len(list(list_ds)), reshuffle_each_iterati
 ds = list_ds.map(process_image_path)
 ds = ds.shuffle(buffer_size=BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True).repeat()
 
-g_optimizer = tf.keras.optimizers.Adam(learning_rate=G_LR, beta_1=BETA_1, beta_2=BETA_2, epsilon=EPSILON)
-d_optimizer = tf.keras.optimizers.Adam(learning_rate=D_LR, beta_1=BETA_1, beta_2=BETA_2, epsilon=EPSILON)
+g_optimizer = tf.keras.optimizers.Adam(learning_rate=G_LR, beta_1=BETA_1)
+d_optimizer = tf.keras.optimizers.Adam(learning_rate=D_LR, beta_1=BETA_1)
 
 if model_version == 0:
     g_model, d_model = create_network()
