@@ -257,22 +257,21 @@ FILTERS = {4: 512, 8: 512, 16: 256, 32: 128, 64: 64, 128: 32}
 
 LAMBDA_GP = 10
 BETA_1 = 0
+BETA_2 = 0.99
+EPSILON = 10 ** (-8)
 
 Z_VECTOR_SPHERICAL = False  # StyleGAN: True (Causes problems), Baseline: False
 
 """ PARAMETERS START """
 
+LEAKY_RELU_ALPHA = 0.2  # StyleGAN: 0.2, Baseline: 0.3
+
 KERNEL_SIZE_RGB = 1  # Check if this works, otherwise remove.
 
-LEAKY_RELU_ALPHA = 0.3  # StyleGAN: 0.2, Baseline: 0.3
-
-BETA_2 = 0.999  # StyleGAN: 0.99, Baseline: 0.999
-EPSILON = 10 ** (-7)  # StyleGAN: 10 ** (-8), Baseline: 10 ** (-7)
+Z_SIZE = 512  # StyleGAN: 512, Baseline: 128
 
 G_LR = 0.0001  # 0.001
 D_LR = 0.0003  # 0.001
-
-Z_SIZE = 128  # StyleGAN: 512, Baseline: 128
 
 DOUBLE_BLOCK = False  # True
 KERNEL_SIZE = 5  # 3
