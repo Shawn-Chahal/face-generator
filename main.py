@@ -55,7 +55,7 @@ def create_network():
         gen_hidden = tf.keras.layers.LeakyReLU(alpha=LEAKY_RELU_ALPHA)(gen_hidden)
 
     gen_rgb.append(
-        tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE, padding="same",
+        tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE_RGB, padding="same",
                                         use_bias=False)(gen_hidden))
 
     while output_dim < GEN_DIM:
@@ -73,7 +73,7 @@ def create_network():
             gen_hidden = tf.keras.layers.BatchNormalization()(gen_hidden)
             gen_hidden = tf.keras.layers.LeakyReLU(alpha=LEAKY_RELU_ALPHA)(gen_hidden)
 
-        gen_rgb.append(tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE, padding="same",
+        gen_rgb.append(tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE_RGB, padding="same",
                                                        use_bias=False)(gen_hidden))
 
     gen_outputs = gen_rgb[0]
@@ -91,8 +91,13 @@ def create_network():
     disc_inputs = tf.keras.Input(shape=(output_dim, output_dim, CHANNELS))
     disc_skip = disc_inputs
 
-    disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
+    disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE_RGB,
                                           padding="same")(disc_inputs)
+    disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
+    disc_outputs = tf.keras.layers.LeakyReLU(alpha=LEAKY_RELU_ALPHA)(disc_outputs)
+
+    disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
+                                          padding="same")(disc_outputs)
     disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
     disc_outputs = tf.keras.layers.LeakyReLU(alpha=LEAKY_RELU_ALPHA)(disc_outputs)
 
@@ -109,7 +114,7 @@ def create_network():
                                               strides=2)(disc_outputs)
 
         disc_skip = tf.keras.layers.AveragePooling2D(padding='same')(disc_skip)
-        disc_from_rgb = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
+        disc_from_rgb = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE_RGB,
                                                padding="same")(disc_skip)
 
         if DOUBLE_BLOCK:
@@ -253,19 +258,21 @@ FILTERS = {4: 512, 8: 512, 16: 256, 32: 128, 64: 64, 128: 32}
 LAMBDA_GP = 10
 BETA_1 = 0
 
+Z_VECTOR_SPHERICAL = False  # StyleGAN: True (Causes problems), Baseline: False
+
 """ PARAMETERS START """
 
-LEAKY_RELU_ALPHA = 0.3  # 0.2
+KERNEL_SIZE_RGB = 1  # Check if this works, otherwise remove.
 
-Z_VECTOR_SPHERICAL = False  # True
-
-DOUBLE_BLOCK = False  # True
-KERNEL_SIZE = 5  # 3
+LEAKY_RELU_ALPHA = 0.3  # StyleGAN: 0.2, Baseline: 0.3
 
 Z_SIZE = 128  # 512
 
 G_LR = 0.0001  # 0.001
 D_LR = 0.0003  # 0.001
+
+DOUBLE_BLOCK = False  # True
+KERNEL_SIZE = 5  # 3
 
 # TODO: Try pixelwise normalization instead of layer/batch norm?
 
