@@ -1,0 +1,116 @@
+Model: "model_1"
+__________________________________________________________________________________________________
+ Layer (type)                   Output Shape         Param #     Connected to                     
+==================================================================================================
+ input_2 (InputLayer)           [(None, 128, 128, 3  0           []                               
+                                )]                                                                
+                                                                                                  
+ conv2d (Conv2D)                (None, 128, 128, 32  128         ['input_2[0][0]']                
+                                )                                                                 
+                                                                                                  
+ layer_normalization (LayerNorm  (None, 128, 128, 32  64         ['conv2d[0][0]']                 
+ alization)                     )                                                                 
+                                                                                                  
+ leaky_re_lu_6 (LeakyReLU)      (None, 128, 128, 32  0           ['layer_normalization[0][0]']    
+                                )                                                                 
+                                                                                                  
+ conv2d_1 (Conv2D)              (None, 128, 128, 32  25632       ['leaky_re_lu_6[0][0]']          
+                                )                                                                 
+                                                                                                  
+ layer_normalization_1 (LayerNo  (None, 128, 128, 32  64         ['conv2d_1[0][0]']               
+ rmalization)                   )                                                                 
+                                                                                                  
+ leaky_re_lu_7 (LeakyReLU)      (None, 128, 128, 32  0           ['layer_normalization_1[0][0]']  
+                                )                                                                 
+                                                                                                  
+ average_pooling2d (AveragePool  (None, 64, 64, 3)   0           ['input_2[0][0]']                
+ ing2D)                                                                                           
+                                                                                                  
+ conv2d_2 (Conv2D)              (None, 64, 64, 64)   51264       ['leaky_re_lu_7[0][0]']          
+                                                                                                  
+ conv2d_3 (Conv2D)              (None, 64, 64, 64)   256         ['average_pooling2d[0][0]']      
+                                                                                                  
+ average (Average)              (None, 64, 64, 64)   0           ['conv2d_2[0][0]',               
+                                                                  'conv2d_3[0][0]']               
+                                                                                                  
+ layer_normalization_2 (LayerNo  (None, 64, 64, 64)  128         ['average[0][0]']                
+ rmalization)                                                                                     
+                                                                                                  
+ leaky_re_lu_8 (LeakyReLU)      (None, 64, 64, 64)   0           ['layer_normalization_2[0][0]']  
+                                                                                                  
+ average_pooling2d_1 (AveragePo  (None, 32, 32, 3)   0           ['average_pooling2d[0][0]']      
+ oling2D)                                                                                         
+                                                                                                  
+ conv2d_4 (Conv2D)              (None, 32, 32, 128)  204928      ['leaky_re_lu_8[0][0]']          
+                                                                                                  
+ conv2d_5 (Conv2D)              (None, 32, 32, 128)  512         ['average_pooling2d_1[0][0]']    
+                                                                                                  
+ average_1 (Average)            (None, 32, 32, 128)  0           ['conv2d_4[0][0]',               
+                                                                  'conv2d_5[0][0]']               
+                                                                                                  
+ layer_normalization_3 (LayerNo  (None, 32, 32, 128)  256        ['average_1[0][0]']              
+ rmalization)                                                                                     
+                                                                                                  
+ leaky_re_lu_9 (LeakyReLU)      (None, 32, 32, 128)  0           ['layer_normalization_3[0][0]']  
+                                                                                                  
+ average_pooling2d_2 (AveragePo  (None, 16, 16, 3)   0           ['average_pooling2d_1[0][0]']    
+ oling2D)                                                                                         
+                                                                                                  
+ conv2d_6 (Conv2D)              (None, 16, 16, 256)  819456      ['leaky_re_lu_9[0][0]']          
+                                                                                                  
+ conv2d_7 (Conv2D)              (None, 16, 16, 256)  1024        ['average_pooling2d_2[0][0]']    
+                                                                                                  
+ average_2 (Average)            (None, 16, 16, 256)  0           ['conv2d_6[0][0]',               
+                                                                  'conv2d_7[0][0]']               
+                                                                                                  
+ layer_normalization_4 (LayerNo  (None, 16, 16, 256)  512        ['average_2[0][0]']              
+ rmalization)                                                                                     
+                                                                                                  
+ leaky_re_lu_10 (LeakyReLU)     (None, 16, 16, 256)  0           ['layer_normalization_4[0][0]']  
+                                                                                                  
+ average_pooling2d_3 (AveragePo  (None, 8, 8, 3)     0           ['average_pooling2d_2[0][0]']    
+ oling2D)                                                                                         
+                                                                                                  
+ conv2d_8 (Conv2D)              (None, 8, 8, 512)    3277312     ['leaky_re_lu_10[0][0]']         
+                                                                                                  
+ conv2d_9 (Conv2D)              (None, 8, 8, 512)    2048        ['average_pooling2d_3[0][0]']    
+                                                                                                  
+ average_3 (Average)            (None, 8, 8, 512)    0           ['conv2d_8[0][0]',               
+                                                                  'conv2d_9[0][0]']               
+                                                                                                  
+ layer_normalization_5 (LayerNo  (None, 8, 8, 512)   1024        ['average_3[0][0]']              
+ rmalization)                                                                                     
+                                                                                                  
+ leaky_re_lu_11 (LeakyReLU)     (None, 8, 8, 512)    0           ['layer_normalization_5[0][0]']  
+                                                                                                  
+ average_pooling2d_4 (AveragePo  (None, 4, 4, 3)     0           ['average_pooling2d_3[0][0]']    
+ oling2D)                                                                                         
+                                                                                                  
+ conv2d_10 (Conv2D)             (None, 4, 4, 512)    6554112     ['leaky_re_lu_11[0][0]']         
+                                                                                                  
+ conv2d_11 (Conv2D)             (None, 4, 4, 512)    2048        ['average_pooling2d_4[0][0]']    
+                                                                                                  
+ average_4 (Average)            (None, 4, 4, 512)    0           ['conv2d_10[0][0]',              
+                                                                  'conv2d_11[0][0]']              
+                                                                                                  
+ layer_normalization_6 (LayerNo  (None, 4, 4, 512)   1024        ['average_4[0][0]']              
+ rmalization)                                                                                     
+                                                                                                  
+ leaky_re_lu_12 (LeakyReLU)     (None, 4, 4, 512)    0           ['layer_normalization_6[0][0]']  
+                                                                                                  
+ conv2d_12 (Conv2D)             (None, 1, 1, 256)    2097408     ['leaky_re_lu_12[0][0]']         
+                                                                                                  
+ layer_normalization_7 (LayerNo  (None, 1, 1, 256)   512         ['conv2d_12[0][0]']              
+ rmalization)                                                                                     
+                                                                                                  
+ leaky_re_lu_13 (LeakyReLU)     (None, 1, 1, 256)    0           ['layer_normalization_7[0][0]']  
+                                                                                                  
+ flatten (Flatten)              (None, 256)          0           ['leaky_re_lu_13[0][0]']         
+                                                                                                  
+ dense (Dense)                  (None, 1)            257         ['flatten[0][0]']                
+                                                                                                  
+==================================================================================================
+Total params: 13,039,969
+Trainable params: 13,039,969
+Non-trainable params: 0
+__________________________________________________________________________________________________

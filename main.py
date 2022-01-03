@@ -232,7 +232,7 @@ def plot_generator_images():
 
 
 tf.random.set_seed(1)
-model_version = 38
+model_version = 0
 
 ReadableTime = namedtuple('ReadableTime', ['days', 'hours', 'minutes', 'seconds'])
 
@@ -259,17 +259,16 @@ LAMBDA_GP = 10
 BETA_1 = 0
 
 Z_VECTOR_SPHERICAL = False  # StyleGAN: True (Causes problems), Baseline: False
+DOUBLE_BLOCK = False  # StyleGAN: True (Causes problems), Baseline: False
 
 """ PARAMETERS START """
 
-DOUBLE_BLOCK = True  # StyleGAN: True, Baseline: False
-KERNEL_SIZE = 3  # StyleGAN: 3, Baseline: 5
-
+KERNEL_SIZE = 5  # StyleGAN: 3, Baseline: 5, Try 7
 KERNEL_SIZE_RGB = 1  # Check if this works, otherwise remove.
 Z_SIZE = 128  # StyleGAN: 512 (seems to do worse), Baseline: 128, Try 256 later
 
 G_LR = 0.0001
-D_LR = 3 * G_LR
+D_LR = 1 * G_LR  # Change this to 1 * G_LR
 
 # TODO: Try pixelwise normalization instead of layer/batch norm?
 
