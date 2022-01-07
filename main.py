@@ -24,10 +24,6 @@ def process_image_path(image_path):
 
     z_vector = tf.random.normal(shape=(Z_SIZE,), seed=1)
 
-    if Z_VECTOR_SPHERICAL:
-        z_magnitude = tf.math.sqrt(tf.math.reduce_sum(tf.math.square(z_vector)))
-        z_vector = tf.math.divide(z_vector, z_magnitude)
-
     return z_vector, img
 
 
@@ -118,12 +114,14 @@ def create_network():
                                                padding="same")(disc_skip)
 
         if DOUBLE_BLOCK:
-            disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
+            disc_outputs = tf.keras.layers.LayerNormalization()(
+                disc_outputs)
             disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
             disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
                                                   padding="same")(disc_outputs)
 
-            disc_from_rgb = tf.keras.layers.LayerNormalization()(disc_from_rgb)
+            disc_from_rgb = tf.keras.layers.LayerNormalization()(
+                disc_from_rgb)
             disc_from_rgb = tf.keras.layers.LeakyReLU()(disc_from_rgb)
             disc_from_rgb = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
                                                    padding="same")(disc_from_rgb)
@@ -232,7 +230,7 @@ def plot_generator_images():
 
 
 tf.random.set_seed(1)
-model_version = 0
+model_version = 106
 
 ReadableTime = namedtuple('ReadableTime', ['days', 'hours', 'minutes', 'seconds'])
 
@@ -257,20 +255,16 @@ FILTERS = {4: 512, 8: 512, 16: 256, 32: 128, 64: 64, 128: 32}
 
 LAMBDA_GP = 10
 BETA_1 = 0
-
-Z_VECTOR_SPHERICAL = False  # StyleGAN: True (Causes problems), Baseline: False
-DOUBLE_BLOCK = False  # StyleGAN: True (Causes problems), Baseline: False
+LEARNING_RATE = 0.0001
 
 """ PARAMETERS START """
 
-KERNEL_SIZE = 5  # StyleGAN: 3, Baseline: 5, Try 7
 KERNEL_SIZE_RGB = 1  # Check if this works, otherwise remove.
-Z_SIZE = 128  # StyleGAN: 512 (seems to do worse), Baseline: 128, Try 256 later
 
-G_LR = 0.0001
-D_LR = 1 * G_LR  # Change this to 1 * G_LR
+DOUBLE_BLOCK = False
+KERNEL_SIZE = 5
 
-# TODO: Try pixelwise normalization instead of layer/batch norm?
+Z_SIZE = 512
 
 """ PARAMETERS END """
 
@@ -281,8 +275,8 @@ list_ds = list_ds.shuffle(buffer_size=len(list(list_ds)), reshuffle_each_iterati
 ds = list_ds.map(process_image_path)
 ds = ds.shuffle(buffer_size=BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True).repeat()
 
-g_optimizer = tf.keras.optimizers.Adam(learning_rate=G_LR, beta_1=BETA_1)
-d_optimizer = tf.keras.optimizers.Adam(learning_rate=D_LR, beta_1=BETA_1)
+g_optimizer = tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE, beta_1=BETA_1)
+d_optimizer = tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE, beta_1=BETA_1)
 
 if model_version == 0:
     g_model, d_model = create_network()
