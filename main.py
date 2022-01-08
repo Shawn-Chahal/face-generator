@@ -28,53 +28,78 @@ def process_image_path(image_path):
 
 
 def create_network():
+    def summarize_models():
+        with open(os.path.join(DATASET.name, S_LOGS, f"gen_model_summary.txt"), "w") as f_gen_model_summary:
+            nn_gen_model.summary(print_fn=(lambda x: f_gen_model_summary.write(f"{x}\n")))
+
+        nn_gen_model.summary()
+
+        with open(os.path.join(DATASET.name, S_LOGS, f"disc_model_summary.txt"), "w") as f_disc_model_summary:
+            nn_disc_model.summary(print_fn=(lambda x: f_disc_model_summary.write(f"{x}\n")))
+
+        nn_disc_model.summary()
+
+    def generator_basic_block(block_input, filters, kernel_size=KERNEL_SIZE, padding="same", strides=1):
+        block_output = tf.keras.layers.Conv2DTranspose(filters=filters, kernel_size=kernel_size,
+                                                       padding=padding, use_bias=False,
+                                                       strides=strides)(block_input)
+        block_output = tf.keras.layers.BatchNormalization()(block_output)
+        block_output = tf.keras.layers.LeakyReLU()(block_output)
+        return block_output
+
+    def generator_standard_block(block_input):
+        block_output = generator_basic_block(block_input, filters=FILTERS[output_dim], strides=2)
+
+        if DOUBLE_BLOCK:
+            block_output = generator_basic_block(block_output, filters=FILTERS[output_dim])
+
+        return block_output
+
+    def generator_to_rgb_block(block_input):
+        block_output = tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE_RGB, padding="same",
+                                                       use_bias=False)(block_input)
+        return block_output
+
+    def discriminator_basic_block(block_input, filters, kernel_size=KERNEL_SIZE, padding="same", strides=1):
+        block_output = tf.keras.layers.Conv2D(filters=filters, kernel_size=kernel_size,
+                                              padding=padding, strides=strides)(block_input)
+        block_output = tf.keras.layers.LayerNormalization()(block_output)
+        block_output = tf.keras.layers.LeakyReLU()(block_output)
+        return block_output
+
+    def discriminator_standard_block(block_input):
+        block_output = block_input
+
+        if DOUBLE_BLOCK:
+            block_output = discriminator_basic_block(block_output, filters=FILTERS[output_dim])
+
+        block_output = discriminator_basic_block(block_output, filters=FILTERS[output_dim], strides=2)
+
+        return block_output
+
+    def discriminator_from_rgb_block(block_input):
+        block_output = discriminator_basic_block(block_input, filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE_RGB)
+
+        return block_output
+
     min_dim = 4
     output_dim = min_dim + 0
 
     """GENERATOR"""
 
-    gen_rgb = []
-
     gen_inputs = tf.keras.Input(shape=(Z_SIZE,))
     gen_hidden = tf.keras.layers.Reshape((1, 1, Z_SIZE))(gen_inputs)
-
-    gen_hidden = tf.keras.layers.Conv2DTranspose(filters=FILTERS[output_dim], kernel_size=output_dim,
-                                                 use_bias=False)(gen_hidden)
-    gen_hidden = tf.keras.layers.BatchNormalization()(gen_hidden)
-    gen_hidden = tf.keras.layers.LeakyReLU()(gen_hidden)
+    gen_hidden = generator_basic_block(gen_hidden, filters=FILTERS[output_dim], kernel_size=output_dim, padding="valid")
 
     if DOUBLE_BLOCK:
-        gen_hidden = tf.keras.layers.Conv2DTranspose(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
-                                                     padding="same", use_bias=False)(gen_hidden)
+        gen_hidden = generator_basic_block(gen_hidden, filters=FILTERS[output_dim])
 
-        gen_hidden = tf.keras.layers.BatchNormalization()(gen_hidden)
-        gen_hidden = tf.keras.layers.LeakyReLU()(gen_hidden)
-
-    gen_rgb.append(
-        tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE_RGB, padding="same",
-                                        use_bias=False)(gen_hidden))
+    gen_outputs = generator_to_rgb_block(gen_hidden)
 
     while output_dim < GEN_DIM:
         output_dim *= 2
-        gen_hidden = tf.keras.layers.Conv2DTranspose(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
-                                                     padding="same", use_bias=False, strides=2)(gen_hidden)
-
-        gen_hidden = tf.keras.layers.BatchNormalization()(gen_hidden)
-        gen_hidden = tf.keras.layers.LeakyReLU()(gen_hidden)
-
-        if DOUBLE_BLOCK:
-            gen_hidden = tf.keras.layers.Conv2DTranspose(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
-                                                         padding="same", use_bias=False)(gen_hidden)
-
-            gen_hidden = tf.keras.layers.BatchNormalization()(gen_hidden)
-            gen_hidden = tf.keras.layers.LeakyReLU()(gen_hidden)
-
-        gen_rgb.append(tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE_RGB, padding="same",
-                                                       use_bias=False)(gen_hidden))
-
-    gen_outputs = gen_rgb[0]
-
-    for gen_rgb_skip in gen_rgb[1:]:
+        gen_hidden = generator_standard_block(gen_hidden)
+        gen_rgb_skip = generator_to_rgb_block(gen_hidden)
         gen_outputs = tf.keras.layers.UpSampling2D(interpolation="bilinear")(gen_outputs)
         gen_outputs = tf.keras.layers.Add()([gen_outputs, gen_rgb_skip])
 
@@ -84,71 +109,29 @@ def create_network():
 
     """DISCRIMINATOR"""
 
-    disc_inputs = tf.keras.Input(shape=(output_dim, output_dim, CHANNELS))
-    disc_skip = disc_inputs
-
-    disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE_RGB,
-                                          padding="same")(disc_inputs)
-    disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
-    disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
-
-    disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
-                                          padding="same")(disc_outputs)
-    disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
-    disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
-
-    if DOUBLE_BLOCK:
-        disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
-                                              padding="same")(disc_outputs)
-        disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
-        disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
+    disc_input = tf.keras.Input(shape=(output_dim, output_dim, CHANNELS))
+    disc_input_skip = disc_input
+    disc_outputs = discriminator_from_rgb_block(disc_input)
 
     while output_dim > min_dim:
         output_dim = output_dim // 2
+        disc_outputs = discriminator_standard_block(disc_outputs)
+        disc_input_skip = tf.keras.layers.AveragePooling2D(padding='same')(disc_input_skip)
+        disc_from_rgb = discriminator_from_rgb_block(disc_input_skip)
+        disc_outputs = tf.keras.layers.Add()([disc_outputs, disc_from_rgb])
 
-        disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE, padding="same",
-                                              strides=2)(disc_outputs)
+    if DOUBLE_BLOCK:
+        disc_outputs = discriminator_basic_block(disc_outputs, filters=FILTERS[output_dim])
 
-        disc_skip = tf.keras.layers.AveragePooling2D(padding='same')(disc_skip)
-        disc_from_rgb = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE_RGB,
-                                               padding="same")(disc_skip)
-
-        if DOUBLE_BLOCK:
-            disc_outputs = tf.keras.layers.LayerNormalization()(
-                disc_outputs)
-            disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
-            disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
-                                                  padding="same")(disc_outputs)
-
-            disc_from_rgb = tf.keras.layers.LayerNormalization()(
-                disc_from_rgb)
-            disc_from_rgb = tf.keras.layers.LeakyReLU()(disc_from_rgb)
-            disc_from_rgb = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE,
-                                                   padding="same")(disc_from_rgb)
-
-        disc_outputs = tf.keras.layers.Average()([disc_outputs, disc_from_rgb])
-        disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
-        disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
-
-    disc_outputs = tf.keras.layers.Conv2D(filters=Z_SIZE, kernel_size=output_dim)(disc_outputs)
-    disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
-    disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
+    disc_outputs = discriminator_basic_block(disc_outputs, filters=FILTERS[output_dim], kernel_size=output_dim)
     disc_outputs = tf.keras.layers.Flatten()(disc_outputs)
     disc_outputs = tf.keras.layers.Dense(units=1)(disc_outputs)
 
-    nn_disc_model = tf.keras.Model(inputs=disc_inputs, outputs=disc_outputs)
+    nn_disc_model = tf.keras.Model(inputs=disc_input, outputs=disc_outputs)
 
     """FINISH"""
 
-    with open(os.path.join(DATASET.name, S_LOGS, f"gen_model_summary.txt"), "w") as f_gen_model_summary:
-        nn_gen_model.summary(print_fn=(lambda x: f_gen_model_summary.write(f"{x}\n")))
-
-    nn_gen_model.summary()
-
-    with open(os.path.join(DATASET.name, S_LOGS, f"disc_model_summary.txt"), "w") as f_disc_model_summary:
-        nn_disc_model.summary(print_fn=(lambda x: f_disc_model_summary.write(f"{x}\n")))
-
-    nn_disc_model.summary()
+    summarize_models()
 
     return nn_gen_model, nn_disc_model
 
@@ -230,7 +213,7 @@ def plot_generator_images():
 
 
 tf.random.set_seed(1)
-model_version = 106
+model_version = 26
 
 ReadableTime = namedtuple('ReadableTime', ['days', 'hours', 'minutes', 'seconds'])
 
@@ -259,12 +242,12 @@ LEARNING_RATE = 0.0001
 
 """ PARAMETERS START """
 
-KERNEL_SIZE_RGB = 1  # Check if this works, otherwise remove.
-
-DOUBLE_BLOCK = False
-KERNEL_SIZE = 5
-
 Z_SIZE = 512
+
+KERNEL_SIZE_RGB = 1
+
+DOUBLE_BLOCK = True
+KERNEL_SIZE = 3
 
 """ PARAMETERS END """
 
