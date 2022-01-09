@@ -213,7 +213,6 @@ def plot_generator_images():
 
 
 tf.random.set_seed(1)
-model_version = 26
 
 ReadableTime = namedtuple('ReadableTime', ['days', 'hours', 'minutes', 'seconds'])
 
@@ -224,30 +223,29 @@ S_GENERATED_FACES = "generated_faces"
 S_G = "g"
 S_D = "d"
 
-DATASET = dataset_info.celeba
-
 LOG_FREQUENCY = 12 * 60  # seconds
 LOG_FREQUENCY_GIT = 20  # versions
 
 BUFFER_SIZE = 4096
 BATCH_SIZE = 16
-
 GEN_DIM = 128
 CHANNELS = 3
 FILTERS = {4: 512, 8: 512, 16: 256, 32: 128, 64: 64, 128: 32}
-
 LAMBDA_GP = 10
 BETA_1 = 0
-LEARNING_RATE = 0.0001
+
+""" TRAINING """
+
+DATASET = dataset_info.celeba
+model_version = 81
 
 """ PARAMETERS START """
 
 Z_SIZE = 512
-
 KERNEL_SIZE_RGB = 1
-
 DOUBLE_BLOCK = True
 KERNEL_SIZE = 3
+LEARNING_RATE = 0.0001
 
 """ PARAMETERS END """
 
