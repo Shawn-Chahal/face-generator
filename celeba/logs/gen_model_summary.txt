@@ -30,7 +30,7 @@ ________________________________________________________________________________
                                                                                                   
  leaky_re_lu_2 (LeakyReLU)      (None, 16, 16, 256)  0           ['batch_normalization_2[0][0]']  
                                                                                                   
- conv2d_transpose_1 (Conv2DTran  (None, 4, 4, 3)     13824       ['leaky_re_lu[0][0]']            
+ conv2d_transpose_1 (Conv2DTran  (None, 4, 4, 3)     1536        ['leaky_re_lu[0][0]']            
  spose)                                                                                           
                                                                                                   
  conv2d_transpose_6 (Conv2DTran  (None, 32, 32, 128)  819200     ['leaky_re_lu_2[0][0]']          
@@ -38,7 +38,7 @@ ________________________________________________________________________________
                                                                                                   
  up_sampling2d (UpSampling2D)   (None, 8, 8, 3)      0           ['conv2d_transpose_1[0][0]']     
                                                                                                   
- conv2d_transpose_3 (Conv2DTran  (None, 8, 8, 3)     13824       ['leaky_re_lu_1[0][0]']          
+ conv2d_transpose_3 (Conv2DTran  (None, 8, 8, 3)     1536        ['leaky_re_lu_1[0][0]']          
  spose)                                                                                           
                                                                                                   
  batch_normalization_3 (BatchNo  (None, 32, 32, 128)  512        ['conv2d_transpose_6[0][0]']     
@@ -51,7 +51,7 @@ ________________________________________________________________________________
                                                                                                   
  up_sampling2d_1 (UpSampling2D)  (None, 16, 16, 3)   0           ['add[0][0]']                    
                                                                                                   
- conv2d_transpose_5 (Conv2DTran  (None, 16, 16, 3)   6912        ['leaky_re_lu_2[0][0]']          
+ conv2d_transpose_5 (Conv2DTran  (None, 16, 16, 3)   768         ['leaky_re_lu_2[0][0]']          
  spose)                                                                                           
                                                                                                   
  conv2d_transpose_8 (Conv2DTran  (None, 64, 64, 64)  204800      ['leaky_re_lu_3[0][0]']          
@@ -65,7 +65,7 @@ ________________________________________________________________________________
                                                                                                   
  up_sampling2d_2 (UpSampling2D)  (None, 32, 32, 3)   0           ['add_1[0][0]']                  
                                                                                                   
- conv2d_transpose_7 (Conv2DTran  (None, 32, 32, 3)   3456        ['leaky_re_lu_3[0][0]']          
+ conv2d_transpose_7 (Conv2DTran  (None, 32, 32, 3)   384         ['leaky_re_lu_3[0][0]']          
  spose)                                                                                           
                                                                                                   
  leaky_re_lu_4 (LeakyReLU)      (None, 64, 64, 64)   0           ['batch_normalization_4[0][0]']  
@@ -78,7 +78,7 @@ ________________________________________________________________________________
                                                                                                   
  up_sampling2d_3 (UpSampling2D)  (None, 64, 64, 3)   0           ['add_2[0][0]']                  
                                                                                                   
- conv2d_transpose_9 (Conv2DTran  (None, 64, 64, 3)   1728        ['leaky_re_lu_4[0][0]']          
+ conv2d_transpose_9 (Conv2DTran  (None, 64, 64, 3)   192         ['leaky_re_lu_4[0][0]']          
  spose)                                                                                           
                                                                                                   
  batch_normalization_5 (BatchNo  (None, 128, 128, 32  128        ['conv2d_transpose_10[0][0]']    
@@ -92,7 +92,7 @@ ________________________________________________________________________________
                                                                                                   
  up_sampling2d_4 (UpSampling2D)  (None, 128, 128, 3)  0          ['add_3[0][0]']                  
                                                                                                   
- conv2d_transpose_11 (Conv2DTra  (None, 128, 128, 3)  864        ['leaky_re_lu_5[0][0]']          
+ conv2d_transpose_11 (Conv2DTra  (None, 128, 128, 3)  96         ['leaky_re_lu_5[0][0]']          
  nspose)                                                                                          
                                                                                                   
  add_4 (Add)                    (None, 128, 128, 3)  0           ['up_sampling2d_4[0][0]',        
@@ -101,7 +101,7 @@ ________________________________________________________________________________
  activation (Activation)        (None, 128, 128, 3)  0           ['add_4[0][0]']                  
                                                                                                   
 ==================================================================================================
-Total params: 15,146,528
-Trainable params: 15,143,520
+Total params: 15,110,432
+Trainable params: 15,107,424
 Non-trainable params: 3,008
 __________________________________________________________________________________________________

@@ -47,14 +47,6 @@ def create_network():
         block_output = tf.keras.layers.LeakyReLU()(block_output)
         return block_output
 
-    def generator_standard_block(block_input):
-        block_output = generator_basic_block(block_input, filters=FILTERS[output_dim], strides=2)
-
-        if DOUBLE_BLOCK:
-            block_output = generator_basic_block(block_output, filters=FILTERS[output_dim])
-
-        return block_output
-
     def generator_to_rgb_block(block_input):
         block_output = tf.keras.layers.Conv2DTranspose(filters=CHANNELS, kernel_size=KERNEL_SIZE_RGB, padding="same",
                                                        use_bias=False)(block_input)
@@ -65,16 +57,6 @@ def create_network():
                                               padding=padding, strides=strides)(block_input)
         block_output = tf.keras.layers.LayerNormalization()(block_output)
         block_output = tf.keras.layers.LeakyReLU()(block_output)
-        return block_output
-
-    def discriminator_standard_block(block_input):
-        block_output = block_input
-
-        if DOUBLE_BLOCK:
-            block_output = discriminator_basic_block(block_output, filters=FILTERS[output_dim])
-
-        block_output = discriminator_basic_block(block_output, filters=FILTERS[output_dim], strides=2)
-
         return block_output
 
     def discriminator_from_rgb_block(block_input):
@@ -91,14 +73,11 @@ def create_network():
     gen_hidden = tf.keras.layers.Reshape((1, 1, Z_SIZE))(gen_inputs)
     gen_hidden = generator_basic_block(gen_hidden, filters=FILTERS[output_dim], kernel_size=output_dim, padding="valid")
 
-    if DOUBLE_BLOCK:
-        gen_hidden = generator_basic_block(gen_hidden, filters=FILTERS[output_dim])
-
     gen_outputs = generator_to_rgb_block(gen_hidden)
 
     while output_dim < GEN_DIM:
         output_dim *= 2
-        gen_hidden = generator_standard_block(gen_hidden)
+        gen_hidden = generator_basic_block(gen_hidden, filters=FILTERS[output_dim], strides=2)
         gen_rgb_skip = generator_to_rgb_block(gen_hidden)
         gen_outputs = tf.keras.layers.UpSampling2D(interpolation="bilinear")(gen_outputs)
         gen_outputs = tf.keras.layers.Add()([gen_outputs, gen_rgb_skip])
@@ -115,13 +94,17 @@ def create_network():
 
     while output_dim > min_dim:
         output_dim = output_dim // 2
-        disc_outputs = discriminator_standard_block(disc_outputs)
-        disc_input_skip = tf.keras.layers.AveragePooling2D(padding='same')(disc_input_skip)
-        disc_from_rgb = discriminator_from_rgb_block(disc_input_skip)
-        disc_outputs = tf.keras.layers.Add()([disc_outputs, disc_from_rgb])
 
-    if DOUBLE_BLOCK:
-        disc_outputs = discriminator_basic_block(disc_outputs, filters=FILTERS[output_dim])
+        disc_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE, padding="same",
+                                              strides=2)(disc_outputs)
+
+        disc_input_skip = tf.keras.layers.AveragePooling2D(padding='same')(disc_input_skip)
+        disc_from_rgb = tf.keras.layers.Conv2D(filters=FILTERS[output_dim], kernel_size=KERNEL_SIZE_RGB, padding="same",
+                                               strides=1)(disc_input_skip)
+
+        disc_outputs = tf.keras.layers.Add()([disc_outputs, disc_from_rgb])
+        disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
+        disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
 
     disc_outputs = discriminator_basic_block(disc_outputs, filters=FILTERS[output_dim], kernel_size=output_dim)
     disc_outputs = tf.keras.layers.Flatten()(disc_outputs)
@@ -230,27 +213,20 @@ BUFFER_SIZE = 4096
 BATCH_SIZE = 16
 GEN_DIM = 128
 CHANNELS = 3
+KERNEL_SIZE = 5
+KERNEL_SIZE_RGB = 1
 FILTERS = {4: 512, 8: 512, 16: 256, 32: 128, 64: 64, 128: 32}
+Z_SIZE = FILTERS[4]
 LAMBDA_GP = 10
 BETA_1 = 0
 LEARNING_RATE = 0.0001
 
-DOUBLE_BLOCK = False
-Z_SIZE = FILTERS[4]
+FIXED_Z = tf.random.normal(shape=(BATCH_SIZE, Z_SIZE))
 
 """ TRAINING """
 
 DATASET = dataset_info.celeba
-model_version = 23
-
-""" PARAMETERS START """
-
-KERNEL_SIZE = 5
-KERNEL_SIZE_RGB = 3
-
-""" PARAMETERS END """
-
-FIXED_Z = tf.random.normal(shape=(BATCH_SIZE, Z_SIZE))
+model_version = 158
 
 list_ds = tf.data.Dataset.list_files(DATASET.glob)
 list_ds = list_ds.shuffle(buffer_size=len(list(list_ds)), reshuffle_each_iteration=False)
