@@ -12,7 +12,7 @@ import dataset_info
 
 def process_image_path(image_path):
     img = tf.io.read_file(image_path)
-    img = tf.io.decode_image(img, channels=CHANNELS, dtype=tf.float32)
+    img = tf.io.decode_image(img, channels=CHANNELS, dtype=tf.float32, expand_animations=False)
 
     if DATASET.name is dataset_info.celeba.name:
         img = tf.image.resize_with_crop_or_pad(img, 178, 178)
@@ -226,8 +226,8 @@ FIXED_Z = tf.random.normal(shape=(BATCH_SIZE, Z_SIZE))
 
 """ TRAINING """
 
-DATASET = dataset_info.celeba
-model_version = 209
+DATASET = dataset_info.flicker_faces
+model_version = 0
 
 list_ds = tf.data.Dataset.list_files(DATASET.glob)
 list_ds = list_ds.shuffle(buffer_size=len(list(list_ds)), reshuffle_each_iteration=False)
