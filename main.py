@@ -209,6 +209,7 @@ S_D = "d"
 LOG_FREQUENCY = 12 * 60  # seconds
 LOG_FREQUENCY_GIT = 20  # versions
 
+N_TRAINING_IMAGES = 10 ** 7
 BUFFER_SIZE = 4096
 BATCH_SIZE = 16
 GEN_DIM = 128
@@ -216,7 +217,7 @@ CHANNELS = 3
 KERNEL_SIZE = 5
 KERNEL_SIZE_RGB = 1
 FILTERS = {4: 512, 8: 512, 16: 256, 32: 128, 64: 64, 128: 32}
-Z_SIZE = FILTERS[4]
+Z_SIZE = 512
 LAMBDA_GP = 10
 BETA_1 = 0
 LEARNING_RATE = 0.0001
@@ -226,7 +227,7 @@ FIXED_Z = tf.random.normal(shape=(BATCH_SIZE, Z_SIZE))
 """ TRAINING """
 
 DATASET = dataset_info.celeba
-model_version = 158
+model_version = 209
 
 list_ds = tf.data.Dataset.list_files(DATASET.glob)
 list_ds = list_ds.shuffle(buffer_size=len(list(list_ds)), reshuffle_each_iteration=False)
@@ -330,3 +331,6 @@ for batch_count, (input_z, input_real) in enumerate(ds, start=initial_batch_coun
         last_status = time.time()
         last_batch_count = batch_count
         last_status_loss = {"G": [], "D": [], "D-Real": [], "D-Fake": [], "D-GP": []}
+
+        if dict_loss['Images trained'][-1] > N_TRAINING_IMAGES:
+            break

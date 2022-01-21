@@ -1,27 +1,36 @@
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import os
+import numpy as np
+
+import dataset_info
 
 tf.random.set_seed(4)
 
-dataset = "flickr_faces"
-z_size = 128
-dim = 128
-batch_size = 64
-fixed_z = tf.random.normal(shape=(batch_size, z_size))
+DATASET = dataset_info.celeba
+Z_SIZE = 512
+BATCH_SIZE = 64
+GEN_DIM = 128
+N_COLS = int(np.ceil(np.sqrt(BATCH_SIZE)))
+N_ROWS = int(BATCH_SIZE / N_COLS)
 
-epoch = 1239
-add_index = [10, 35, 36, 46, 54, 55]
+model_version = 205
+g_model = tf.keras.models.load_model(os.path.join(DATASET.name, "objects", f'g_model-{model_version:04d}.h5'))
 
-gen_model = tf.keras.models.load_model(os.path.join(dataset, "objects", f'gen_model-{epoch:04d}.h5'))
+rng = np.random.default_rng(9)
 
-images = (gen_model(fixed_z) + 1) / 2
+fixed_z = [rng.normal(size=Z_SIZE) for i in range(BATCH_SIZE)]
+ds_z = tf.data.Dataset.from_tensor_slices(fixed_z).batch(BATCH_SIZE)
+add_index = [15, 26, 29]
+
+for batch_z in ds_z:
+    images = (g_model(batch_z) + 1) / 2
 
 n_rows = 8
 n_cols = 8
 
 fig = plt.figure(figsize=(n_cols, 1.2 * n_rows), dpi=300)
-for i in range(batch_size):
+for i in range(BATCH_SIZE):
     ax = fig.add_subplot(n_rows, n_cols, i + 1)
     ax.set_xticks([])
     ax.set_yticks([])
@@ -30,7 +39,7 @@ for i in range(batch_size):
     ax.imshow(images[i])
 
 plt.tight_layout()
-plt.savefig(os.path.join(dataset, 'testing', f'faces_{epoch:03d}.png'))
+plt.savefig(os.path.join(DATASET.name, 'testing', f'faces_{model_version:04d}.png'))
 plt.close(fig)
 
 n_rows = 1
@@ -61,9 +70,9 @@ latent_mean = tf.math.reduce_mean(latent_sum)
 latent_std = tf.math.reduce_std(latent_sum)
 
 latent_sum = (latent_sum - latent_mean) / (latent_std + 0.000001)
-latent_sum = tf.reshape(latent_sum, (1, z_size))
+latent_sum = tf.reshape(latent_sum, (1, Z_SIZE))
 
-image_sum = (gen_model(latent_sum) + 1) / 2
+image_sum = (g_model(latent_sum) + 1) / 2
 
 ax = fig.add_subplot(n_rows, n_cols, n_rows * n_cols)
 ax.set_xticks([])
@@ -74,5 +83,5 @@ ax.text(0.5, 1.1, f'Composite', size=10, horizontalalignment='center', verticala
 ax.imshow(image_sum[0])
 
 plt.tight_layout()
-plt.savefig(os.path.join(dataset, 'testing', f'composite_{epoch:03d}.png'))
+plt.savefig(os.path.join(DATASET.name, 'testing', f'composite_{model_version:04d}.png'))
 plt.close(fig)
