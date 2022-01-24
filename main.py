@@ -209,7 +209,6 @@ S_D = "d"
 LOG_FREQUENCY = 12 * 60  # seconds
 LOG_FREQUENCY_GIT = 20  # versions
 
-N_TRAINING_IMAGES = 10 ** 7
 BUFFER_SIZE = 4096
 BATCH_SIZE = 16
 GEN_DIM = 128
@@ -224,10 +223,12 @@ LEARNING_RATE = 0.0001
 
 FIXED_Z = tf.random.normal(shape=(BATCH_SIZE, Z_SIZE))
 
-""" TRAINING """
+""" TRAINING_FUNCTION PARAMETERS """
 
 DATASET = dataset_info.flicker_faces
-model_version = 0
+model_version = 172
+
+""" TRAINING_FUNCTION PARAMETERS """
 
 list_ds = tf.data.Dataset.list_files(DATASET.glob)
 list_ds = list_ds.shuffle(buffer_size=len(list(list_ds)), reshuffle_each_iteration=False)
@@ -331,6 +332,3 @@ for batch_count, (input_z, input_real) in enumerate(ds, start=initial_batch_coun
         last_status = time.time()
         last_batch_count = batch_count
         last_status_loss = {"G": [], "D": [], "D-Real": [], "D-Fake": [], "D-GP": []}
-
-        if dict_loss['Images trained'][-1] > N_TRAINING_IMAGES:
-            break
