@@ -1,2 +1,0 @@
-conda install cudatoolkit=11.2 cudnn=8.1.0 -c=conda-forge
-pip install tensorflow pandas matplotlib
