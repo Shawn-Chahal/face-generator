@@ -18,6 +18,7 @@ def process_image_path(image_path):
         img = tf.image.resize_with_crop_or_pad(img, 178, 178)
 
     img = tf.image.resize(img, size=(GEN_DIM, GEN_DIM))
+    img = tf.image.random_flip_left_right(img)
     img = tf.math.multiply(img, 2)
     img = tf.math.subtract(img, 1)
 
@@ -31,10 +32,10 @@ def create_network():
 
         nn_e_model.summary()
 
-    def basic_block(block_input, kernel_size):
+    def basic_block(block_input, kernel_size, padding="same"):
         block_output = tf.keras.layers.Conv2D(filters=FILTERS[output_dim],
                                               kernel_size=kernel_size,
-                                              padding="same")(block_input)
+                                              padding=padding)(block_input)
         block_output = tf.keras.layers.LayerNormalization()(block_output)
         block_output = tf.keras.layers.LeakyReLU()(block_output)
         return block_output
@@ -60,9 +61,10 @@ def create_network():
         e_outputs = tf.keras.layers.LayerNormalization()(e_outputs)
         e_outputs = tf.keras.layers.LeakyReLU()(e_outputs)
 
-    e_outputs = basic_block(e_outputs, kernel_size=output_dim)
+    e_outputs = tf.keras.layers.Conv2D(filters=FILTERS[output_dim],
+                                       kernel_size=output_dim,
+                                       padding="valid")(e_outputs)
     e_outputs = tf.keras.layers.Flatten()(e_outputs)
-    e_outputs = tf.keras.layers.Dense(units=Z_SIZE)(e_outputs)
 
     nn_e_model = tf.keras.Model(inputs=e_input, outputs=e_outputs)
 
@@ -152,7 +154,6 @@ S_ENCODER_IMAGES = "encoder_images"
 
 LOG_FREQUENCY = 12 * 60  # seconds
 LOG_FREQUENCY_GIT = 20  # versions
-MAX_BATCHES_PER_LOOP = 10 ** 7
 
 BUFFER_SIZE = 4096
 BATCH_SIZE = 16
@@ -162,9 +163,6 @@ KERNEL_SIZE = 5
 KERNEL_SIZE_RGB = 1
 FILTERS = {4: 512, 8: 512, 16: 256, 32: 128, 64: 64, 128: 32}
 Z_SIZE = 512
-LAMBDA_GP = 10
-BETA_1 = 0
-LEARNING_RATE = 0.0001
 
 N_IMAGES = 2 * BATCH_SIZE
 N_COLS = 8
@@ -187,7 +185,12 @@ for batch in ds_verify:
     FIXED_IMAGES = batch
     break
 
-optimizer = tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE, beta_1=BETA_1)
+list_ds = tf.data.Dataset.list_files(DATASET.glob)
+list_ds = list_ds.shuffle(buffer_size=len(list(list_ds)), reshuffle_each_iteration=False)
+ds = list_ds.map(process_image_path)
+ds = ds.shuffle(buffer_size=BUFFER_SIZE).batch(BATCH_SIZE, drop_remainder=True).repeat()
+
+optimizer = tf.keras.optimizers.Adam()  # learning_rate=LEARNING_RATE, beta_1=BETA_1)
 
 if model_version == 0:
     e_model = create_network()
@@ -208,15 +211,13 @@ last_status = time.time()
 last_batch_count = initial_batch_count
 last_status_loss = []
 
-for batch_count in range(initial_batch_count, initial_batch_count + MAX_BATCHES_PER_LOOP):
-
-    input_z = tf.random.normal(shape=(BATCH_SIZE, Z_SIZE))
+for batch_count, images_real in enumerate(ds, start=initial_batch_count):
 
     with tf.GradientTape() as tape:
 
-        g_output = g_model(input_z)
-        e_output = e_model(g_output, training=True)
-        loss = mean_squared_error(e_output, input_z)
+        latent_z = e_model(images_real, training=True)
+        images_generated = g_model(latent_z)
+        loss = mean_squared_error(images_generated, images_real)
 
     grads = tape.gradient(loss, e_model.trainable_variables)
     optimizer.apply_gradients(zip(grads, e_model.trainable_variables))
@@ -241,10 +242,21 @@ for batch_count in range(initial_batch_count, initial_batch_count + MAX_BATCHES_
         plot_learning_curve()
         plot_images()
 
+        uint8_loss = int(255 * (np.sqrt(dict_loss['Loss'][-1]) / 2))
+
+        if len(dict_loss["Loss"]) > 1:
+            delta_loss = dict_loss['Loss'][-1] - dict_loss['Loss'][-2]
+            delta_time = (time.time() - last_status)
+            etr = -dict_loss['Loss'][-1] / delta_loss * delta_time
+            print_etr = get_print_time(etr)
+        else:
+            print_etr = ReadableTime(99, 23, 59, 59)
+
         print(
             f"Version: {dict_loss['Model version'][-1]:4d} | Images trained: {dict_loss['Images trained'][-1]:8d} | "
             f"Time: {print_time.days}:{print_time.hours}:{print_time.minutes:02d}:{print_time.seconds:02d} | "
-            f"Loss: {dict_loss['Loss'][-1]:8.5f} | Images per hour: {images_per_hour:6.0f}"
+            f"Loss: {dict_loss['Loss'][-1]:8.5f} | uint8 loss: {uint8_loss:03d} | Images per hour: {images_per_hour:6.0f} | "
+            f"Estimated time remaining: {print_etr.days}:{print_etr.hours}:{print_etr.minutes:02d}:{print_etr.seconds:02d}"
         )
 
         last_status = time.time()

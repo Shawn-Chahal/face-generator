@@ -106,7 +106,8 @@ def create_network():
         disc_outputs = tf.keras.layers.LayerNormalization()(disc_outputs)
         disc_outputs = tf.keras.layers.LeakyReLU()(disc_outputs)
 
-    disc_outputs = discriminator_basic_block(disc_outputs, filters=FILTERS[output_dim], kernel_size=output_dim)
+    disc_outputs = discriminator_basic_block(disc_outputs, filters=FILTERS[output_dim], kernel_size=output_dim,
+                                             padding="valid")
     disc_outputs = tf.keras.layers.Flatten()(disc_outputs)
     disc_outputs = tf.keras.layers.Dense(units=1)(disc_outputs)
 
